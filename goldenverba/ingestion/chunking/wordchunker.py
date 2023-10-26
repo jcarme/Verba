@@ -44,11 +44,6 @@ class WordChunker(Chunker):
 
             doc = self.nlp(document.text)
 
-            if units > len(doc) or units < 1:
-                msg.warn(
-                    f"Unit value either exceeds length of actual document or is below 1 ({units}/{len(doc)})"
-                )
-                continue
 
             if overlap >= units:
                 msg.warn(

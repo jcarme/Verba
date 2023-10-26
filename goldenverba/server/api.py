@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse
 
 from pathlib import Path
 from pydantic import BaseModel
+from typing import Optional
 
 from goldenverba.retrieval.advanced_engine import AdvancedVerbaQueryEngine
 from goldenverba import verba_manager
@@ -131,8 +132,8 @@ class QueryPayload(BaseModel):
 
 
 class SearchQueryPayload(BaseModel):
-    query: str
-    doc_type: str
+    query: Optional[str] = ""
+    doc_type: Optional[str] = ""
 
 
 class GetDocumentPayload(BaseModel):

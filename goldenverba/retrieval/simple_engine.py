@@ -97,9 +97,17 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         @parameter dist - float - Distance threshold
         @returns Optional[dict] - List of results or None
         """
+        return None, None
+        #TODO right now it's unclear how the class name will
+        #be chosen by the Verba team in the definitive 0.3
+        #version with the new modular design
+        #as a quick dirty fix we hardcode it to the value that
+        #we need.
+        cache_class_name = "Cache_text2vec_openai"
+
         query_results = (
             VerbaQueryEngine.client.query.get(
-                class_name="Cache",
+                class_name=cache_class_name,
                 properties=["query", "results", "system"],
             )
             .with_near_text(content={"concepts": query})
@@ -108,7 +116,10 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
             .do()
         )
 
-        results = query_results["data"]["Get"]["Cache"]
+        if "data" in query_results:
+            results = query_results["data"]["Get"][cache_class_name]
+        else:
+            return None, None
 
         if not results:
             return None, None

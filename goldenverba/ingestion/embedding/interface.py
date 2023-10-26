@@ -1,3 +1,6 @@
+import time
+import os
+
 from weaviate import Client
 
 from goldenverba.ingestion.reader.document import Document
@@ -59,8 +62,8 @@ class Embedder(VerbaComponent):
                         temp_batch.append(chunk)
                     else:
                         batches.append(temp_batch.copy())
-                        token_counter = 0
-                        temp_batch = []
+                        token_counter = len(chunk.tokens)
+                        temp_batch = [chunk]
                 if len(temp_batch) > 0:
                     batches.append(temp_batch.copy())
                     token_counter = 0
@@ -111,6 +114,9 @@ class Embedder(VerbaComponent):
                                 client.batch.add_data_object(
                                     properties, class_name, vector=chunk.vector
                                 )
+                            #client.batch.add_data_object(properties, "Chunk")
+                            wait_time = int(os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES",0))
+                            time.sleep(wait_time)
 
                 self.check_document_status(
                     client,
@@ -170,7 +176,7 @@ class Embedder(VerbaComponent):
                 # Rollback if fails
                 self.remove_document(client, doc_name, doc_class_name, chunk_class_name)
                 raise Exception(
-                    f"Chunk mismatch for {doc_uuid} {len(results['data']['Get'])} != {chunk_count}"
+                    f"Chunk mismatch for {doc_uuid} {len(results['data']['Get'][chunk_class_name])} != {chunk_count}"
                 )
         else:
             raise Exception(f"Document {doc_uuid} not found {document}")
