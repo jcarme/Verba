@@ -2,11 +2,12 @@ import re
 
 from wasabi import msg  # type: ignore[import]
 from weaviate import Client
+import os
 
 from goldenverba.ingestion.util import setup_client
 
 VECTORIZERS = set(["text2vec-openai"])  # Needs to match with Weaviate modules
-EMBEDDINGS = set(["MiniLM"])  # Custom Vectors
+EMBEDDINGS = set() #["MiniLM"])  # Custom Vectors
 
 
 def strip_non_letters(s: str):
@@ -23,9 +24,26 @@ def verify_vectorizer(
     @returns dict - Modified schema if vectorizer is available
     """
     modified_schema = schema.copy()
+
+    vectorizer_config = None
+    if os.getenv("OPENAI_API_TYPE") == "azure" and vectorizer=="text2vec-openai":
+        resourceName = os.getenv("AZURE_OPENAI_RESOURCE_NAME")
+        model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL")
+        if resourceName is None or model is None:
+            raise Exception("AZURE_OPENAI_RESOURCE_NAME and AZURE_OPENAI_EMBEDDING_MODEL should be set when OPENAI_API_TYPE is azure. Resource name is XXX in http://XXX.openai.azure.com")
+        vectorizer_config = { 
+            "text2vec-openai": {
+                    "deploymentId": model,
+                    "resourceName": resourceName
+            }
+        }
+    
+
     # Verify Vectorizer
     if vectorizer in VECTORIZERS:
         modified_schema["classes"][0]["vectorizer"] = vectorizer
+        if vectorizer_config is not None:
+            modified_schema["classes"][0]["moduleConfig"] = vectorizer_config
 
         for property in modified_schema["classes"][0]["properties"]:
             if property["name"] in skip_properties:

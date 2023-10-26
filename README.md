@@ -1,3 +1,35 @@
+# WL specific documentation
+
+This chapter is dedicated to our Verba WL patches and deployment.
+
+The repository is based on the _development_ version of Verba which was not stable. It includes several patches that are temporary, they are made to work specifically with our configuration, but on the long term we should rely on the _main_ branch of the upstream version of Verba. 
+
+To install Verba:
+- First you should install the Verba package, preferable in a dedicated environment (conda): 
+```
+pip install -e .
+```
+- Then create your own set_env file:
+```
+copy set_env.template.sh set_end.sh
+```
+- Edit `sel_env.sh` and change variables according to your environment. Set your Azure OpenAI endpoint, key and resourceName (first part of your endpoint URL)
+- __Weaviate won't work if your endpoint is not XXX.openai.azure.com__ So if you are using the proxy a workaround is to edit your `/etc/hosts` and to add:
+```
+<your endpoint IP> <your resource name>.openai.azure.com
+```
+- Go to the `weaviate_docker` repository and, in another terminal, run:
+```
+docker-compose up
+```
+- Finally, run:
+```
+source set_env.sh
+verba start
+```
+
+If everything is OK you should be able to connect to the Verba web app at `localhost:8000` and to the API doc at `localhost:8000/docs`
+
 # Verba 
 ## 🐕 The Golden RAGtriever
 

@@ -1,0 +1,15 @@
+export OPENAI_API_TYPE="azure"
+export OPENAI_API_BASE="<your endpoint>"
+export OPENAI_API_VERSION="2023-07-01-preview"
+export OPENAI_API_KEY="<your key>"
+export AZURE_OPENAI_RESOURCE_NAME="<your resource name>" 
+export AZURE_OPENAI_EMBEDDING_MODEL="text-embedding-ada-002"
+export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES=3
+export VERBA_MODEL="gpt-4"
+export VERBA_URL="http://localhost:8080"
+
+
+# IMPORTANT:
+# <resource name> is the first part of your azure openai API endpoint. It's XXX when your endpoint is XXX.openai.azure.com
+# if your OPENAI_API_BASE is not XXX.openai.azure.com, the weaviate will NOT work.
+# a workaround (to be tested) is to set your XXX.openai.azure.com to the IP of XXX.your_endpoint.com in your /etc/hosts

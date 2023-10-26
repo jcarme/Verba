@@ -133,8 +133,20 @@ class VerbaManager:
             import openai
 
             openai_key = os.environ.get("OPENAI_API_KEY", "")
+            if "OPENAI_API_TYPE" in os.environ:
+                openai.api_type = os.getenv("OPENAI_API_TYPE")
+            if "OPENAI_API_BASE" in os.environ:
+                openai.api_base = os.getenv("OPENAI_API_BASE")
+            if "OPENAI_API_VERSION" in os.environ:
+                openai.api_version = os.getenv("OPENAI_API_VERSION")
+
+            if os.getenv("OPENAI_API_TYPE") == "azure":
+                openai_header_key = "X-Azure-Api-Key"
+            else:
+                openai_header_key = "X-OpenAI-Api-Key"
+
             if openai_key != "":
-                additional_header["X-OpenAI-Api-Key"] = openai_key
+                additional_header[openai_header_key] = openai_key
                 self.environment_variables["OPENAI_API_KEY"] = True
                 openai.api_key = openai_key
                 msg.info("OpenAI API key detected")
@@ -166,8 +178,9 @@ class VerbaManager:
 
             msg.info("Using Weaviate Embedded")
             self.weaviate_type = "Weaviate Embedded"
+
             client = weaviate.Client(
-                additional_headers={"X-OpenAI-Api-Key": openai.api_key},
+                additional_headers={openai_header_key: openai.api_key},
                 embedded_options=EmbeddedOptions(
                     persistence_data_path="./.verba/local/share/",
                     binary_path="./.verba/cache/weaviate-embedded",
