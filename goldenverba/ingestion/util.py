@@ -12,6 +12,7 @@ from weaviate.embedded import EmbeddedOptions
 
 from wasabi import msg  # type: ignore[import]
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 def setup_client() -> Optional[Client]:
     """
@@ -115,7 +116,7 @@ def import_documents(client: Client, documents) -> dict:
                 "doc_link": str(d.user_data["doc_link"]),
             }
 
-            uuid = client.batch.add_data_object(properties, "Document")
+            uuid = client.batch.add_data_object(properties, "Document",tenant=TENANT)
             uuid_key = str(d.user_data["doc_hash"]).strip().lower()
             doc_uuid_map[uuid_key] = uuid
 
@@ -148,10 +149,9 @@ def import_chunks(client: Client, chunks, doc_uuid_map: dict) -> None:
                 "chunk_id": int(d.user_data["_split_id"]),
             }
 
-            client.batch.add_data_object(properties, "Chunk")
-            wait_time = os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES",0)
-            print(wait_time)
-            time.sleep(wait_time)
+            client.batch.add_data_object(properties, "Chunk",tenant=TENANT)
+            wait_time_ms = int(os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS","0"))
+            time.sleep(float(wait_time_ms)/1000)
 
     msg.good("Imported all chunks")
 
@@ -170,7 +170,7 @@ def import_suggestions(client: Client, suggestions: list[str]) -> None:
                 "suggestion": d,
             }
 
-            client.batch.add_data_object(properties, "Suggestion")
+            client.batch.add_data_object(properties, "Suggestion",tenant=TENANT)
 
     msg.good("Imported all suggestions")
 
@@ -264,6 +264,7 @@ def check_if_file_exits(client: Client, doc_name: str) -> bool:
                 "doc_name",
             ],
         )
+        .with_tenant(TENANT)
         .with_where(
             {
                 "path": ["doc_name"],

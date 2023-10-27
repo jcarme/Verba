@@ -13,7 +13,7 @@ class Chunker(VerbaComponent):
     def __init__(self):
         super().__init__()
         self.input_form = InputForm.CHUNKER.value  # Default for all Chunkers
-        self.default_units = 100
+        self.default_units = 300
         self.default_overlap = 50
 
     def chunk(documents: list[Document], units: int, overlap: int) -> list[Document]:

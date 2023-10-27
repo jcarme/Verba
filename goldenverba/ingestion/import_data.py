@@ -44,12 +44,11 @@ def import_data(path_str: str, model: str):
         msg.fail("Client setup failed")
         return
 
-    if not client.schema.exists("Document"):
-        init_documents()
-    if not client.schema.exists("Cache"):
-        init_cache()
-    if not client.schema.exists("Suggestion"):
-        init_suggestion()
+
+    init_documents()
+
+    init_cache()
+    init_suggestion()
 
     msg.info("All schemas available")
 

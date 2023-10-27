@@ -20,6 +20,7 @@ from goldenverba.ingestion.component import VerbaComponent
 
 import goldenverba.ingestion.schema.schema_generation as schema_manager
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class VerbaManager:
     """Manages all Verba Components"""
@@ -255,12 +256,13 @@ class VerbaManager:
         @returns dict - A dictionary with the schema names and their object count
         """
 
-        schema_info = self.client.schema.get()
+        schema_info = self.client.schema.get().with_tenant(TENANT)
         schemas = {}
 
         for _class in schema_info["classes"]:
             results = (
                 self.client.query.get(_class["class"])
+                .with_tenant(TENANT)
                 .with_limit(100000)
                 .with_additional(properties=["id"])
                 .do()
@@ -285,6 +287,7 @@ class VerbaManager:
                     class_name=class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_additional(properties=["id"])
                 .with_limit(10000)
                 .do()
@@ -295,6 +298,7 @@ class VerbaManager:
                     class_name=class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_additional(properties=["id"])
                 .with_where(
                     {
@@ -322,17 +326,16 @@ class VerbaManager:
         document = self.client.data_object.get_by_id(
             doc_id,
             class_name=class_name,
+            tenant=TENANT
         )
         return document
 
     def reset(self):
-        self.client.schema.delete_all()
-        # Check if all schemas exist for all possible vectorizers
         for vectorizer in schema_manager.VECTORIZERS:
-            schema_manager.init_schemas(self.client, vectorizer, False, True)
+            schema_manager.init_schemas(self.client, vectorizer, False, True,reset=True)
 
         for embedding in schema_manager.EMBEDDINGS:
-            schema_manager.init_schemas(self.client, embedding, False, True)
+            schema_manager.init_schemas(self.client, embedding, False, True,reset=True)
 
     def check_if_document_exits(self, document: Document) -> bool:
         """Return a document by it's ID (UUID format) from Weaviate
@@ -351,6 +354,7 @@ class VerbaManager:
                     "doc_name",
                 ],
             )
+            .with_tenant(TENANT)
             .with_where(
                 {
                     "path": ["doc_name"],

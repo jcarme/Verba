@@ -4,6 +4,7 @@ import os
 from wasabi import msg
 import openai
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
     def query(self, query_string: str, model: str) -> tuple:
@@ -32,6 +33,7 @@ class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
                 class_name=chunk_class_name,
                 properties=["text", "doc_name", "chunk_id", "doc_uuid", "doc_type"],
             )
+            .with_tenant(TENANT)
             .with_hybrid(query=query_string)
             .with_additional(properties=["score"])
             .with_limit(8)
@@ -119,6 +121,7 @@ class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
                                     "doc_type",
                                 ],
                             )
+                            .with_tenant(TENANT)                            
                             .with_where(
                                 {
                                     "operator": "And",

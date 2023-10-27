@@ -15,6 +15,7 @@ from goldenverba.ingestion.schema.schema_generation import (
 
 from wasabi import msg
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class Embedder(VerbaComponent):
     """
@@ -85,7 +86,7 @@ class Embedder(VerbaComponent):
                     }
 
                     class_name = "Document_" + strip_non_letters(self.vectorizer)
-                    uuid = client.batch.add_data_object(properties, class_name)
+                    uuid = client.batch.add_data_object(properties, class_name,tenant=TENANT)
 
                     for chunk in document.chunks:
                         chunk.set_uuid(uuid)
@@ -109,14 +110,14 @@ class Embedder(VerbaComponent):
 
                             # Check if vector already exists
                             if chunk.vector == None:
-                                client.batch.add_data_object(properties, class_name)
+                                client.batch.add_data_object(properties, class_name,tenant=TENANT)
                             else:
                                 client.batch.add_data_object(
-                                    properties, class_name, vector=chunk.vector
+                                    properties, class_name, vector=chunk.vector,tenant=TENANT
                                 )
                             #client.batch.add_data_object(properties, "Chunk")
-                            wait_time = int(os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES",0))
-                            time.sleep(wait_time)
+                            wait_time_ms = int(os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS","0"))
+                            time.sleep(float(wait_time_ms)/1000)
 
                 self.check_document_status(
                     client,
@@ -151,6 +152,7 @@ class Embedder(VerbaComponent):
         document = client.data_object.get_by_id(
             doc_uuid,
             class_name=doc_class_name,
+            tenant=TENANT
         )
 
         if document != None:
@@ -161,6 +163,7 @@ class Embedder(VerbaComponent):
                         "doc_name",
                     ],
                 )
+                .with_tenant(TENANT)
                 .with_where(
                     {
                         "path": ["doc_uuid"],
@@ -193,11 +196,13 @@ class Embedder(VerbaComponent):
         client.batch.delete_objects(
             class_name=doc_class_name,
             where={"path": ["doc_name"], "operator": "Equal", "valueText": doc_name},
+            tenant=TENANT
         )
 
         client.batch.delete_objects(
             class_name=chunk_class_name,
             where={"path": ["doc_name"], "operator": "Equal", "valueText": doc_name},
+            tenant=TENANT
         )
 
         msg.warn(f"Deleted document {doc_name} and its chunks")
@@ -206,11 +211,12 @@ class Embedder(VerbaComponent):
         doc_class_name = "Document_" + strip_non_letters(self.vectorizer)
         chunk_class_name = "Chunk_" + strip_non_letters(self.vectorizer)
 
-        client.data_object.delete(uuid=doc_id, class_name=doc_class_name)
+        client.data_object.delete(uuid=doc_id, class_name=doc_class_name,tenant=TENANT)
 
         client.batch.delete_objects(
             class_name=chunk_class_name,
             where={"path": ["doc_uuid"], "operator": "Equal", "valueText": doc_id},
+            tenant=TENANT
         )
 
         msg.warn(f"Deleted document {doc_id} and its chunks")
@@ -228,6 +234,7 @@ class Embedder(VerbaComponent):
                     class_name=doc_class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_bm25(query, properties=["doc_name"])
                 .with_additional(properties=["id"])
                 .with_limit(20)
@@ -239,6 +246,7 @@ class Embedder(VerbaComponent):
                     class_name=doc_class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_bm25(query, properties=["doc_name"])
                 .with_where(
                     {

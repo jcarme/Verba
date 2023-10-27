@@ -1,9 +1,10 @@
 import os
 import base64
+import shelve
 
 from wasabi import msg  # type: ignore[import]
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -25,34 +26,82 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-manager = verba_manager.VerbaManager()
+manager = None #
+readers = None
+chunckers = None
+verba_engine = None
+
 option_cache = {}
 
-readers = manager.reader_get_readers()
-for reader in readers:
-    available, message = manager.check_verba_component(readers[reader])
-    if available:
-        manager.reader_set_reader(reader)
-        option_cache["last_reader"] = reader
-        option_cache["last_document_type"] = "Documentation"
-        break
+def check_manager_initialized():
+    if manager == None:
+        raise HTTPException(503,"Verba not initialized. Please upload a key using /api/set_openai_key")
 
-chunker = manager.chunker_get_chunker()
-for chunk in chunker:
-    available, message = manager.check_verba_component(chunker[chunk])
-    if available:
-        manager.chunker_set_chunker(chunk)
-        option_cache["last_chunker"] = chunk
-        break
+def store_api_key(key):
+    weaviate_tenant = os.getenv('WEAVIATE_TENANT',default='default_tenant')
+    with shelve.open("key_cache") as db:
+        db[weaviate_tenant] = key
+
+def check_api_key():
+    if "OPENAI_API_KEY" in os.environ:
+        return True
+    weaviate_tenant = os.getenv('WEAVIATE_TENANT',default='default_tenant')
+    with shelve.open("key_cache") as db:
+        key = db.get(weaviate_tenant,None)
+    if key:
+        os.environ["OPENAI_API_KEY"] = key
+        return True
+    return False
 
 
-embedders = manager.embedder_get_embedder()
-for embedder in embedders:
-    available, message = manager.check_verba_component(embedders[embedder])
-    if available:
-        manager.embedder_set_embedder(embedder)
-        option_cache["last_embedder"] = embedder
-        break
+def init_manager():
+    global manager
+    global readers
+    global chunker
+    global embedders
+    global verba_engine
+    global option_cache
+
+    if not check_api_key():
+        return
+
+    manager = verba_manager.VerbaManager()
+
+    readers = manager.reader_get_readers()
+    for reader in readers:
+        available, message = manager.check_verba_component(readers[reader])
+        if available:
+            manager.reader_set_reader(reader)
+            option_cache["last_reader"] = reader
+            option_cache["last_document_type"] = "Documentation"
+            break
+
+    chunker = manager.chunker_get_chunker()
+    for chunk in chunker:
+        available, message = manager.check_verba_component(chunker[chunk])
+        if available:
+            manager.chunker_set_chunker(chunk)
+            option_cache["last_chunker"] = chunk
+            break
+
+
+    embedders = manager.embedder_get_embedder()
+    embedder_available = False
+    for embedder in embedders:
+        available, message = manager.check_verba_component(embedders[embedder])
+        if available:
+            manager.embedder_set_embedder(embedder)
+            option_cache["last_embedder"] = embedder
+            embedder_available = True
+            break
+    if not embedder_available:
+        raise HTTPException(400,"No embedder available. If you use OpenAI, please check you have uploaded your key using /api/set_openai_key")
+    
+    # Delete later
+    verba_engine = AdvancedVerbaQueryEngine(manager.client)
+
+
+init_manager()
 
 
 def create_reader_payload(key: str, reader: Reader) -> dict:
@@ -93,8 +142,7 @@ def create_embedder_payload(key: str, embedder: Embedder) -> dict:
     }
 
 
-# Delete later
-verba_engine = AdvancedVerbaQueryEngine(manager.client)
+
 
 # FastAPI App
 app = FastAPI()
@@ -130,6 +178,8 @@ app.mount("/static", StaticFiles(directory=BASE_DIR / "frontend/out"), name="app
 class QueryPayload(BaseModel):
     query: str
 
+class APIKeyPayload(BaseModel):
+    key: str
 
 class SearchQueryPayload(BaseModel):
     query: Optional[str] = ""
@@ -170,6 +220,7 @@ async def serve_frontend():
 # Define health check endpoint
 @app.get("/api/health")
 async def root():
+    check_manager_initialized()
     try:
         if verba_engine.get_client().is_ready():
             return JSONResponse(
@@ -306,6 +357,7 @@ async def reset_verba():
 # Receive query and return chunks and query answer
 @app.post("/api/load_data")
 async def load_data(payload: LoadPayload):
+    check_manager_initialized()
     manager.reader_set_reader(payload.reader)
     manager.chunker_set_chunker(payload.chunker)
     manager.embedder_set_embedder(payload.embedder)
@@ -374,6 +426,7 @@ async def load_data(payload: LoadPayload):
 # Receive query and return chunks and query answer
 @app.post("/api/query")
 async def query(payload: QueryPayload):
+    check_manager_initialized()
     try:
         system_msg, results = verba_engine.query(
             payload.query, os.environ["VERBA_MODEL"]
@@ -495,3 +548,25 @@ async def delete_document(payload: GetDocumentPayload):
 
     manager.delete_document_by_id(payload.document_id)
     return JSONResponse(content={})
+
+
+#setting openai key
+@app.post("/api/set_openai_key")
+async def set_openai_key(payload: APIKeyPayload):
+    try:
+        os.environ["OPENAI_API_KEY"] = payload.key      
+        store_api_key(payload.key)
+        init_manager()
+        return JSONResponse(
+            content={
+                "status": "200",
+                "status_msg": "OpenAI key set",
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={
+                "status": "400",
+                "status_msg": "OpenAI key not set",
+            }
+        )
