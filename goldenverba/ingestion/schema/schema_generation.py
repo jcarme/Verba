@@ -2,6 +2,7 @@ import re
 
 from wasabi import msg  # type: ignore[import]
 from weaviate import Client
+from weaviate import Tenant
 import os
 
 from goldenverba.ingestion.util import setup_client
@@ -9,10 +10,21 @@ from goldenverba.ingestion.util import setup_client
 VECTORIZERS = set(["text2vec-openai"])  # Needs to match with Weaviate modules
 EMBEDDINGS = set() #["MiniLM"])  # Custom Vectors
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 def strip_non_letters(s: str):
     return re.sub(r"[^a-zA-Z0-9]", "_", s)
 
+def create_if_not_exists(client,class_name,class_schema,tenant_name,reset=False):
+    if not client.schema.exists(class_name):
+        client.schema.create(class_schema)
+        msg.good(f"{class_name} schema created")
+    if reset:
+        client.schema.remove_class_tenants(class_name=class_name,tenants=[tenant_name])
+        msg.good(f"tenant {tenant_name} class {class_name} removed")
+    if not tenant_name in [tenant.name for tenant in client.schema.get_class_tenants(class_name)]:
+        client.schema.add_class_tenants(class_name=class_name,tenants=[Tenant(name=tenant_name)])
+        msg.good(f"{class_name} schema added to tenant {tenant_name}")
 
 def verify_vectorizer(
     schema: dict, vectorizer: str, skip_properties: list[str] = []
@@ -75,12 +87,22 @@ def add_suffix(schema: dict, vectorizer: str) -> tuple[dict, str]:
     )
     return modified_schema, modified_schema["classes"][0]["class"]
 
+def delete_tenant(
+    client: Client, tenant_name: str
+):
+    """Deletes a tenant
+    @parameter client : Client - Weaviate client
+    @parameter tenant_name : str - Name of the tenant
+    @returns None
+    """
+    client.schema.remove_class_tenants(class_name=class_name,tenants=[Tenant(name=tenant_name)])
 
 def init_schemas(
     client: Client = None,
     vectorizer: str = None,
     force: bool = False,
-    check: bool = False,
+    check: bool = False, 
+    reset: bool = False
 ) -> bool:
     """Initializes a weaviate client and initializes all required schemas
     @parameter client : Client - Weaviate Client
@@ -91,8 +113,8 @@ def init_schemas(
     """
 
     try:
-        init_documents(client, vectorizer, force, check)
-        init_cache(client, vectorizer, force, check)
+        init_documents(client, vectorizer, force, check,reset=reset)
+        init_cache(client, vectorizer, force, check, reset=reset)
         # init_suggestion(client, vectorizer, force, check)
         return True
     except Exception as e:
@@ -101,13 +123,14 @@ def init_schemas(
 
 
 def init_documents(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> tuple[dict, dict]:
     """Initializes the Document and Chunk class
     @parameter client : Client - Weaviate client
     @parameter vectorizer : str - Name of the vectorizer
     @parameter force : bool - Delete existing schema without user input
     @parameter check : bool - Only create if not exist
+    @parameter reset : bool - Reset tenant
     @returns tuple[dict, dict] - Tuple of modified schemas
     """
 
@@ -115,6 +138,7 @@ def init_documents(
         "classes": [
             {
                 "class": "Chunk",
+                'multiTenancyConfig': {'enabled': True},                
                 "description": "Chunks of Documentations",
                 "properties": [
                     {
@@ -154,6 +178,7 @@ def init_documents(
         "classes": [
             {
                 "class": "Document",
+                'multiTenancyConfig': {'enabled': True},
                 "description": "Documentation",
                 "properties": [
                     {
@@ -202,29 +227,8 @@ def init_documents(
     document_schema, document_name = add_suffix(SCHEMA_DOCUMENT, vectorizer)
     chunk_schema, chunk_name = add_suffix(chunk_schema, vectorizer)
 
-    if client.schema.exists(document_name):
-        if check:
-            return document_schema, chunk_schema
-        if not force:
-            user_input = input(
-                f"{document_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(document_name)
-            client.schema.delete_class(chunk_name)
-            client.schema.create(document_schema)
-            client.schema.create(chunk_schema)
-            msg.good(f"{document_name} and {chunk_name} schemas created")
-        else:
-            msg.warn(
-                f"Skipped deleting {document_name} and {chunk_name} schema, nothing changed"
-            )
-    else:
-        client.schema.create(document_schema)
-        client.schema.create(chunk_schema)
-        msg.good(f"{document_name} and {chunk_name} schemas created")
+    create_if_not_exists(client,document_name,document_schema,TENANT,reset=reset)
+    create_if_not_exists(client,chunk_name,chunk_schema,TENANT,reset=reset)
 
     # If Weaviate Embedded runs
     if client._connection.embedded_db:
@@ -235,7 +239,7 @@ def init_documents(
 
 
 def init_cache(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> dict:
     """Initializes the Cache
     @parameter client : Client - Weaviate client
@@ -249,6 +253,7 @@ def init_cache(
         "classes": [
             {
                 "class": "Cache",
+                'multiTenancyConfig': {'enabled': True},                
                 "description": "Cache of Documentations and their queries",
                 "properties": [
                     {
@@ -283,24 +288,7 @@ def init_cache(
     # Add Suffix
     cache_schema, cache_name = add_suffix(cache_schema, vectorizer)
 
-    if client.schema.exists(cache_name):
-        if check:
-            return cache_schema
-        if not force:
-            user_input = input(
-                f"{cache_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(cache_name)
-            client.schema.create(cache_schema)
-            msg.good(f"{cache_name} schema created")
-        else:
-            msg.warn(f"Skipped deleting {cache_name} schema, nothing changed")
-    else:
-        client.schema.create(cache_schema)
-        msg.good(f"{cache_name} schema created")
+    create_if_not_exists(client,cache_name,cache_schema,TENANT,reset=reset)
 
     # If Weaviate Embedded runs
     if client._connection.embedded_db:
@@ -311,7 +299,7 @@ def init_cache(
 
 
 def init_suggestion(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> dict:
     """Initializes the Suggestion schema
     @parameter client : Client - Weaviate client
@@ -325,6 +313,7 @@ def init_suggestion(
         "classes": [
             {
                 "class": "Suggestion",
+                'multiTenancyConfig': {'enabled': True},                
                 "description": "List of possible prompts",
                 "properties": [
                     {
@@ -340,24 +329,9 @@ def init_suggestion(
     # Add Suffix
     suggestion_schema, suggestion_name = add_suffix(SCHEMA_SUGGESTION, vectorizer)
 
-    if client.schema.exists(suggestion_name):
-        if check:
-            return suggestion_schema
-        if not force:
-            user_input = input(
-                f"{suggestion_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(suggestion_name)
-            client.schema.create(suggestion_schema)
-            msg.good(f"{suggestion_name} schema created")
-        else:
-            msg.warn(f"Skipped deleting {suggestion_name} schema, nothing changed")
-    else:
-        client.schema.create(suggestion_schema)
-        msg.good(f"{suggestion_name} schema created")
+    create_if_not_exists(client,suggestion_name,suggestion_schema,TENANT,reset=reset)
+
+  
 
     # If Weaviate Embedded runs
     if client._connection.embedded_db:
