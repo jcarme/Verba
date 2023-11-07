@@ -12,7 +12,9 @@ wheel
 twine
 spacy
 tiktoken
-sentence-transformer
+sentence-transformers
 transformers
 torch
 gradio
+streamlit
+st-pagess
