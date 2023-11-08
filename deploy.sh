@@ -32,10 +32,6 @@ then
     exit 1
 fi
 
-echo "$VERBA_PORT"
-echo "$URL_PREFIX"
-echo "$STREAMLIT_PORT"
-
 # Function to kill children processes when the main script is killed
 kill_children_processes() {
     pkill -P $$
@@ -49,7 +45,7 @@ echo "Starting Verba on port $VERBA_PORT..."
 echo "Verba started"
 
 # Start Streamlit, store standard and error logs in streamlit.$1.log, do not erase the previous logs
-echo "Starting Streamlit on port $STREAMLIT_PORT (url prefix $URL_PREFIX)..."
+echo "Starting Streamlit on port $STREAMLIT_PORT (url will be http://localhost:$STREAMLIT_PORT/$URL_PREFIX)..."
 (python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  >> streamlit.$1.log 2>&1) &
 echo "Streamlit started"
 

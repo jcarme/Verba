@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="goldenverba",
@@ -28,7 +28,7 @@ setup(
     install_requires=[
         "weaviate-client>=3.23.1",
         "python-dotenv>=1.0.0",
-        "openai>=0.27.9",
+        "openai==0.28.1",
         "wasabi>=1.1.2",
         "spacy",
         "fastapi>=0.102.0",

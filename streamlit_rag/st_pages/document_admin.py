@@ -6,18 +6,10 @@ import pathlib
 import streamlit as st
 from verba_utils.api_client import APIClient, test_api_connection
 from verba_utils.payloads import LoadPayload
-from verba_utils.utils import (
-    doc_id_from_filename,
-    get_ordered_all_filenames,
-    remove_non_utf8_characters,
-)
+from verba_utils.utils import doc_id_from_filename, get_ordered_all_filenames
 
 BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
 
-api_client = APIClient(
-    verba_port=st.session_state["verba_admin"]["verba_port"],
-    verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-)
 log = logging.getLogger(__name__)
 
 
@@ -28,21 +20,35 @@ st.set_page_config(
     page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
 )
 
+if not "verba_admin" in st.session_state:
+    # when streamlit is started and we bypass the home page session_state["verba_admin"] is not set
+    # the user has to go to main page and come back
+    st.warning(
+        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+    )
+    st.stop()
+else:
+    api_client = APIClient(
+        verba_port=st.session_state["verba_admin"]["verba_port"],
+        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
+    )
+
 is_verba_responding = test_api_connection(api_client)
-TENANT_NAME = os.environ.get("tenant_name")
-title = "📕 Document administration panel"
-if TENANT_NAME:
-    title = f"{title} (instance for {TENANT_NAME})"
 
 if not is_verba_responding["is_ok"]:  # verba api not responding
-    st.title(f"{title} 🔴")
+    st.title("📕 Document administration panel 🔴")
     st.error(
         f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
         icon="🚨",
     )
+    if st.button("🔄 Try again", type="primary"):
+        # when the button is clicked, the page will refresh by itself :)
+        log.debug("Refresh page")
 
 else:  # verba api connected
-    st.title(f"{title} 🟢")
+    st.title("📕 Document administration panel 🟢")
+
+    # define 3 document sections
     inspect_tab, insert_tab, delete_tab = st.tabs(
         [
             "Inspect uploaded documents",
@@ -52,9 +58,9 @@ else:  # verba api connected
     )
 
     with inspect_tab:
-        col1, col2 = st.columns([0.3, 0.7])
+        doc_list, doc_preview = st.columns([0.3, 0.7])
 
-        with col1:  # display all found document as an ordered radio list
+        with doc_list:  # display all found document as an ordered radio list
             if st.button("🔄 Refresh list", type="primary"):
                 # when the button is clicked, the page will refresh by itself :)
                 log.debug("Refresh page")
@@ -70,7 +76,7 @@ else:  # verba api connected
                 chosen_doc = None
                 st.write("No document found")
 
-        with col2:  # display select document text content
+        with doc_preview:  # display select document text content
             if chosen_doc is not None:
                 document_id = doc_id_from_filename(
                     chosen_doc,
@@ -118,10 +124,8 @@ else:  # verba api connected
                         )
                         continue
                     encoded_document = base64.b64encode(file.getvalue()).decode("utf-8")
-                    st.write(encoded_document)  # remove this line later
                     loadPayload.fileBytes.append(encoded_document)
                     loadPayload.fileNames.append(file.name)
-                st.write(loadPayload)
                 if len(loadPayload.fileNames) > 0:
                     with st.spinner(
                         "Uploading `"
@@ -129,7 +133,6 @@ else:  # verba api connected
                         + "`..."
                     ):
                         response = api_client.load_data(loadPayload)
-                        st.write(response)
                         if str(response.status) == "200":
                             st.info(f"✅ Documents successfully uploaded")
                             st.balloons()
@@ -140,6 +143,11 @@ else:  # verba api connected
                             st.info(
                                 "Please try to upload our documents one by one to find out which one can't be sent (probably encoding issue)"
                             )
+                            st.title("Debug info :")
+                            st.write("Sent POST payload :")
+                            st.write(loadPayload)
+                            st.write("Received response :")
+                            st.write(response)
 
     with delete_tab:
         st.header("Delete documents")

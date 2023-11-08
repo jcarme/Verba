@@ -82,7 +82,7 @@ if [ "$header_written" = true ]; then
 fi
 
 # Final information
-echo "Nginx configuration file generated: $output_file"
+echo "Generated nginx configuration file : $output_file"
 echo "Please place it in /etc/nginx/sites-enabled/reverse-proxy"
 echo "Then run \"sudo service nginx reload\" to apply changes"
 
