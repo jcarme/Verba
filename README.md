@@ -30,6 +30,27 @@ verba start
 
 If everything is OK you should be able to connect to the Verba web app at `localhost:8000` and to the API doc at `localhost:8000/docs`
 
+## Streamlit front-end
+
+We developed our own chatbot front-end using Streamlit which is not verba branded. __Note__ : You must a a running instance of verba.
+
+To use it :
+
+1 - Install the custom package
+
+```bash
+pip install -e streamlit_rag
+```
+
+2 - Start streamlit
+
+You must know your `VERBA_PORT` and `BASE_VERBA_API_URL`
+
+```bash
+streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  
+```
+
+
 # Verba 
 ## 🐕 The Golden RAGtriever
 

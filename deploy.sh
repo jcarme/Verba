@@ -10,34 +10,47 @@ export VERBA_URL="http://localhost:8080"
 export BASE_VERBA_API_URL="http://localhost"
 
 TENANT_NUMBER=$1
-#check that the tenant number is not empty and a number
+# Check that the tenant number is not empty and a number
 if [ -z "$TENANT_NUMBER" ] || ! [[ "$TENANT_NUMBER" =~ ^[0-9]+$ ]]
 then
     echo "Please provide a tenant number as the first argument"
     exit 1
 fi
 
-#set the VERBA_URL port as 8080+tenant number
-VERBA_PORT=$(($TENANT_NUMBER+8000))
-STREAMLIT_PORT=$(($TENANT_NUMBER+8500))
 export WEAVIATE_TENANT='tenant_'$TENANT_NUMBER
 
+# Read values from the "tenant_mapping.csv" file
+# We do +2 because TENANT number starts at 0, our csv file starts at 1 and we have the header to ignore
+VERBA_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $1}' tenant_mapping.csv)
+URL_PREFIX=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $2}' tenant_mapping.csv)
+STREAMLIT_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $3}' tenant_mapping.csv)
 
-#start verba, store std and error logs in verba.$1.log, do not erase the previous logs
-echo "starting verba on port $VERBA_PORT..."
-# verba start --port $VERBA_PORT >> verba.$1.log 2>&1 &
+# Check if VERBA_PORT or STREAMLIT_PORT is empty
+if [ -z "$VERBA_PORT" ] || [ -z "$STREAMLIT_PORT" ] || [ -z "$URL_PREFIX" ]
+then
+    echo "VERBA_PORT or STREAMLIT_PORT or URL_PREFIX is empty. Please make sure the values are defined in the tenant_mapping.csv file."
+    exit 1
+fi
 
-# Wait for verba to start
-sleep 1
+echo "$VERBA_PORT"
+echo "$URL_PREFIX"
+echo "$STREAMLIT_PORT"
 
-echo "verba started"
+# Function to kill children processes when the main script is killed
+kill_children_processes() {
+    pkill -P $$
+}
+trap 'kill_children_processes; exit' INT TERM
+set -m
 
-echo "starting streamlit on port $STREAMLIT_PORT..."
+# Start Verba, store standard and error logs in verba.$1.log, do not erase the previous logs
+echo "Starting Verba on port $VERBA_PORT..."
+(verba start --port $VERBA_PORT >> verba.$1.log 2>&1) &
+echo "Verba started"
 
-# Exécuter streamlit
-streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  >> streamlit.$1.log 2>&1 &
-
-# Wait for Streamlit to start
-sleep 1
-
+# Start Streamlit, store standard and error logs in streamlit.$1.log, do not erase the previous logs
+echo "Starting Streamlit on port $STREAMLIT_PORT (url prefix $URL_PREFIX)..."
+(python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  >> streamlit.$1.log 2>&1) &
 echo "Streamlit started"
+
+wait

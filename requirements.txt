@@ -12,9 +12,3 @@ wheel
 twine
 spacy
 tiktoken
-sentence-transformers
-transformers
-torch
-gradio
-streamlit
-st-pagess

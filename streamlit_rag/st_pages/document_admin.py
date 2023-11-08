@@ -121,16 +121,25 @@ else:  # verba api connected
                     st.write(encoded_document)  # remove this line later
                     loadPayload.fileBytes.append(encoded_document)
                     loadPayload.fileNames.append(file.name)
+                st.write(loadPayload)
                 if len(loadPayload.fileNames) > 0:
                     with st.spinner(
                         "Uploading `"
                         + "` `".join([e for e in loadPayload.fileNames])
                         + "`..."
                     ):
-                        res = api_client.load_data(loadPayload)
-                        st.write(res)
-                        st.info(f"✅ Documents successfully uploaded")
-                        st.balloons()
+                        response = api_client.load_data(loadPayload)
+                        st.write(response)
+                        if str(response.status) == "200":
+                            st.info(f"✅ Documents successfully uploaded")
+                            st.balloons()
+                        else:
+                            st.error(
+                                f'Something went wrong when submitting documents {loadPayload.fileNames} http response  [{response.status}] -> "{response.status_msg}"'
+                            )
+                            st.info(
+                                "Please try to upload our documents one by one to find out which one can't be sent (probably encoding issue)"
+                            )
 
     with delete_tab:
         st.header("Delete documents")

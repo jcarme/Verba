@@ -19,8 +19,6 @@ log = logging.getLogger(__name__)
 
 
 class API_routes(BaseSettings):
-    # verba_port: str | int = Field(default="8000", env="verba_port")
-    # verba_base_url: str = Field(default="http://localhost", env="base_verba_api_url")
     verba_port: str | int
     verba_base_url: str
     health: str = "health"
@@ -67,7 +65,7 @@ class APIClient:
     def build_url(self, endpoint: str) -> str:
         """Helper function to build the endpoint url
 
-        :param str endpoint:
+        :param str endpoint: one attribute of API_routes
         :return str:
         """
         return f"{self.api_routes.base_api_url}/{endpoint}"
@@ -148,8 +146,12 @@ class APIClient:
                     f"Impossible to convert get_all_documents response as SearchQueryResponsePayload : {response.json()}, details : {e}"
                 )
         else:
-            log.warning(f"POST query returned code [{response.status_code}]")
-        return LoadResponsePayload()
+            log.error(
+                f"POST query returned code [{response.status_code}] details {response.content}"
+            )
+        return LoadResponsePayload(
+            status=response.status_code, status_msg=response.text
+        )
 
     def delete_document(self, document_id: str) -> bool:
         response = self.make_request(
