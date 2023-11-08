@@ -1,7 +1,6 @@
 import logging
 
 import requests
-from pydantic import Field
 from pydantic_core._pydantic_core import ValidationError
 from pydantic_settings import BaseSettings
 from verba_utils.payloads import (

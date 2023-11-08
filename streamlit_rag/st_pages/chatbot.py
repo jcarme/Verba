@@ -14,14 +14,6 @@ from verba_utils.utils import (
     remove_non_utf8_characters,
 )
 
-BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
-
-api_client = APIClient(
-    verba_port=st.session_state["verba_admin"]["verba_port"],
-    verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-)
-log = logging.getLogger(__name__)
-
 
 def generate_answer(
     prompt: str,
@@ -75,6 +67,10 @@ def generate_answer(
         return response.system
 
 
+BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
+log = logging.getLogger(__name__)
+
+
 st.set_page_config(
     initial_sidebar_state="expanded",
     layout="centered",
@@ -86,12 +82,20 @@ max_worlds_answers = st.sidebar.slider(
     "Select maximum words in answer:", min_value=40, max_value=500, value=100, step=20
 )
 
+if not "verba_admin" in st.session_state:
+    st.warning(
+        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+    )
+    st.stop()
+else:
+    api_client = APIClient(
+        verba_port=st.session_state["verba_admin"]["verba_port"],
+        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
+    )
+
 is_verba_responding = test_api_connection(api_client)
 
-TENANT_NAME = os.environ.get("tenant_name")
 title = "🤖 WL RAG Chatbot"
-if TENANT_NAME:
-    title = f"{title} (instance for {TENANT_NAME})"
 
 if not is_verba_responding["is_ok"]:  # verba api not responding
     st.title(f"{title} 🔴")
@@ -99,6 +103,9 @@ if not is_verba_responding["is_ok"]:  # verba api not responding
         f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
         icon="🚨",
     )
+    if st.button("🔄 Try again", type="primary"):
+        # when the button is clicked, the page will refresh by itself :)
+        log.debug("Refresh page")
 else:  # verba api connected
     st.title(f"{title} 🟢")
 
