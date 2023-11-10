@@ -31,12 +31,6 @@ def generate_answer(
     :param return_documents: bool default False. If true returns (text_response, documents_list)
     :returns: str | Tuple(str, List)
     """
-    # from verba_utils.constants import QUERY_RANDOM_RESPONSE
-
-    # if return_documents:
-    #     return QUERY_RANDOM_RESPONSE.system, QUERY_RANDOM_RESPONSE.documents
-    # else:
-    #     return QUERY_RANDOM_RESPONSE.system
 
     if max_nb_words is None and min_nb_words is not None:
         max_nb_words = min_nb_words * 2
