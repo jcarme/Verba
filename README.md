@@ -30,6 +30,40 @@ verba start
 
 If everything is OK you should be able to connect to the Verba web app at `localhost:8000` and to the API doc at `localhost:8000/docs`
 
+## Streamlit front-end
+
+We developed our own chatbot front-end using Streamlit which is not verba branded. __Note__ : You must have a running instance of verba.
+
+To use it :
+
+1 - Install the custom package
+
+```bash
+pip install -e streamlit_rag
+```
+
+2 - Start streamlit
+
+You must know your `VERBA_PORT` and `BASE_VERBA_API_URL`
+
+```bash
+streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  
+```
+
+## Ngnix config
+
+Streamlit app behind a ngnix proxy is not straightforward. To make it simple, there is a bash script that generates the nginx config for multi tenants `generate_ngnix_config.sh`
+
+You must create a csv file with 3 columns `verba_port,url_prefix,streamlit_port` (don't forget to add a blank line at the end)
+Then run this to generate the ngnix config :
+
+```bash
+ ./generate_ngnix_config.sh --csv_file=tenant_mapping.csv --output_file="config"   
+```
+
+You will have a new file `config`. Copy past the content in `/etc/nginx/sites-enabled/reverse-proxy`.
+Then run the command `sudo service nginx reload\"` to apply the changes.
+
 # Verba 
 ## 🐕 The Golden RAGtriever
 
