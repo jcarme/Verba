@@ -113,12 +113,13 @@ if __name__ == "__main__":
     )
     show_pages(
         [
-            Page(BASE_ST_DIR / "app.py", "🏠 Home"),
-            Page(BASE_ST_DIR / "st_pages/chatbot.py", "🤖 RAG Chatbot"),
+            Page(BASE_ST_DIR / "app.py", "Home"),
+            Page(BASE_ST_DIR / "st_pages/chatbot.py", "RAG Chatbot"),
             Page(
                 BASE_ST_DIR / "st_pages/document_admin.py",
-                "📕 Document administration",
+                "Document administration",
             ),
+            Page(BASE_ST_DIR / "st_pages/api_key_admin.py", "API key administration"),
         ]
     )
     display_centered_image(str(BASE_ST_DIR / "assets/WL-Horizontal.png"))

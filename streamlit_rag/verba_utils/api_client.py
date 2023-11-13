@@ -1,9 +1,12 @@
 import logging
+from typing import Dict
 
 import requests
 from pydantic_core._pydantic_core import ValidationError
 from pydantic_settings import BaseSettings
 from verba_utils.payloads import (
+    APIKeyPayload,
+    APIKeyResponsePayload,
     GetDocumentPayload,
     GetDocumentResponsePayload,
     LoadPayload,
@@ -27,6 +30,10 @@ class API_routes(BaseSettings):
     get_components: str = "get_components"
     load_data: str = "load_data"
     delete_document: str = "delete_document"
+    set_openai_key: str = "set_openai_key"
+    get_openai_key_preview: str = "get_openai_key_preview"
+    unset_openai_key: str = "unset_openai_key"
+    test_openai_api_key: str = "test_openai_api_key"
 
     @property
     def base_api_url(self) -> str:
@@ -163,6 +170,45 @@ class APIClient:
         else:
             log.warning(f"POST query returned code [{response.status_code}]")
             return False
+
+    def set_openai_key(self, api_key: str) -> APIKeyResponsePayload:
+        response = self.make_request(
+            method="POST",
+            endpoint=self.api_routes.set_openai_key,
+            data=APIKeyPayload(key=api_key).model_dump_json(),
+        )
+        if response.status_code == requests.status_codes.codes["ok"]:
+            try:
+                return APIKeyResponsePayload.model_validate(response.json())
+            except ValidationError as e:
+                log.warning(
+                    f"Impossible to convert set_openai_key response as APIKeyResponsePayload : {response.json()}, details : {e}"
+                )
+        else:
+            log.error(
+                f"POST query returned code [{response.status_code}] details {response.content}"
+            )
+        return LoadResponsePayload(
+            status=response.status_code, status_msg=response.text
+        )
+
+    def get_openai_key_preview(self) -> str:
+        response = self.make_request(
+            "GET", self.api_routes.get_openai_key_preview
+        ).json()
+
+        if response["status"] == "200":
+            return response["status_msg"]
+        else:
+            return ""
+
+    def unset_openai_key(self) -> bool:
+        response = self.make_request("POST", self.api_routes.unset_openai_key).json()
+        return response["status"] == "200"
+
+    def test_openai_api_key(self) -> Dict:
+        response = self.make_request("GET", self.api_routes.test_openai_api_key)
+        return response.json()
 
 
 def test_api_connection(api_client: APIClient) -> dict:
