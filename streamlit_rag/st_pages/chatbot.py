@@ -93,14 +93,34 @@ title = "🤖 WL RAG Chatbot"
 
 if not is_verba_responding["is_ok"]:  # verba api not responding
     st.title(f"{title} 🔴")
-    st.error(
-        f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
-        icon="🚨",
-    )
+    if "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]:
+        st.error(
+            f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+            icon="🚨",
+        )
+
+    else:
+        st.error(
+            f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
+            icon="🚨",
+        )
     if st.button("🔄 Try again", type="primary"):
         # when the button is clicked, the page will refresh by itself :)
         log.debug("Refresh page")
-else:  # verba api connected
+
+else:
+    test_open_ai_token = api_client.test_openai_api_key()
+    if test_open_ai_token["status"] != "200":  # token set but not working
+        st.title(f"{title} 🔴")
+        st.error(
+            f"OpenAI API token set but is not working. Go fix it in **API Key administration** page",
+            icon="🚨",
+        )
+
+
+if (
+    is_verba_responding["is_ok"] and test_open_ai_token["status"] == "200"
+):  # verba api connected and token is working
     st.title(f"{title} 🟢")
 
     selected_panel = option_menu(
