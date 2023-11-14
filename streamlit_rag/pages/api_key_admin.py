@@ -17,18 +17,13 @@ st.set_page_config(
     page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
 )
 
-if not "verba_admin" in st.session_state:
-    # when streamlit is started and we bypass the home page session_state["verba_admin"] is not set
-    # the user has to go to main page and come back
+if (not "VERBA_PORT" in os.environ) or (not "VERBA_BASE_URL" in os.environ):
     st.warning(
-        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+        '"VERBA_PORT" or "VERBA_BASE_URL" not found in env variable. To solve this, good to Home page and reload the page.'
     )
     st.stop()
 else:
-    api_client = APIClient(
-        verba_port=st.session_state["verba_admin"]["verba_port"],
-        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-    )
+    api_client = APIClient()
 
 is_verba_responding = test_api_connection(api_client)
 

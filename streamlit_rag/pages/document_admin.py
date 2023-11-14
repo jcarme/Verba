@@ -39,18 +39,13 @@ chunk_overlap = st.sidebar.slider(
 )
 
 
-if not "verba_admin" in st.session_state:
-    # when streamlit is started and we bypass the home page session_state["verba_admin"] is not set
-    # the user has to go to main page and come back
+if (not "VERBA_PORT" in os.environ) or (not "VERBA_BASE_URL" in os.environ):
     st.warning(
-        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+        '"VERBA_PORT" or "VERBA_BASE_URL" not found in env variable. To solve this, good to Home page and reload the page.'
     )
     st.stop()
 else:
-    api_client = APIClient(
-        verba_port=st.session_state["verba_admin"]["verba_port"],
-        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-    )
+    api_client = APIClient()
 
 is_verba_responding = test_api_connection(api_client)
 
@@ -171,7 +166,20 @@ if (
                         + "` `".join([e for e in loadPayload.fileNames])
                         + "`. Please wait. Expect about 1 second per KB of text."
                     ):
-                        response = api_client.load_data(loadPayload)
+                        debug_loadPayload = {
+                            "reader": "SimpleReader",
+                            "chunker": "WordChunker",
+                            "embedder": "ADAEmbedder",
+                            "fileBytes": ["SW52b2ljZSBQYXltZW50IE1ldGhvZHMK"],
+                            "fileNames": ["Τρόποι Εξόφλησης Τιμολογίου.txt"],
+                            "filePath": "",
+                            "document_type": "Documentation",
+                            "chunkUnits": 100,
+                            "chunkOverlap": 50,
+                        }
+                        response = api_client.load_data(
+                            LoadPayload.model_validate(debug_loadPayload)
+                        )
                         if str(response.status) == "200":
                             st.info(f"✅ Documents successfully uploaded")
                             st.balloons()
