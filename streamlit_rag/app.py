@@ -25,18 +25,15 @@ def main(verba_port, verba_base_url):
     if not (verba_port and verba_base_url):
         st.error(
             f"""
-            Streamlit app not properly started, make sure to provide the following cli arguments 
+            Streamlit app is not properly started, make sure to provide the following cli arguments 
             `verba_port` (current value : {verba_port}) and 
             `verba_base_url` (current value :  {verba_base_url}). 
             Hint : you may need to look at https://docs.streamlit.io/library/get-started/main-concepts
             """
         )
 
-    # write verba connection settings to session_state for other pages
-    st.session_state["verba_admin"] = {
-        "verba_port": verba_port,
-        "verba_base_url": verba_base_url,
-    }
+    os.environ["VERBA_PORT"] = verba_port
+    os.environ["VERBA_BASE_URL"] = verba_base_url
 
     st.header("LLM and RAG in a nutshell", divider="grey")
 

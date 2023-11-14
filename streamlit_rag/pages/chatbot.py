@@ -76,16 +76,13 @@ max_worlds_answers = st.sidebar.slider(
     "Select maximum words in answer:", min_value=40, max_value=500, value=100, step=20
 )
 
-if not "verba_admin" in st.session_state:
+if (not "VERBA_PORT" in os.environ) or (not "VERBA_BASE_URL" in os.environ):
     st.warning(
-        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+        '"VERBA_PORT" or "VERBA_BASE_URL" not found in env variable. To solve this, good to Home page and reload the page.'
     )
     st.stop()
 else:
-    api_client = APIClient(
-        verba_port=st.session_state["verba_admin"]["verba_port"],
-        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-    )
+    api_client = APIClient()
 
 is_verba_responding = test_api_connection(api_client)
 

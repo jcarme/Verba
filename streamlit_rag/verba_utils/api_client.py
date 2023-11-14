@@ -2,6 +2,7 @@ import logging
 from typing import Dict
 
 import requests
+from pydantic import Field
 from pydantic_core._pydantic_core import ValidationError
 from pydantic_settings import BaseSettings
 from verba_utils.payloads import (
@@ -21,8 +22,8 @@ log = logging.getLogger(__name__)
 
 
 class API_routes(BaseSettings):
-    verba_port: str | int
-    verba_base_url: str
+    verba_port: str | int = Field(default="8000", env="VERBA_PORT")
+    verba_base_url: str = Field(default="http://localhost", env="VERBA_BASE_URL")
     health: str = "health"
     query: str = "query"
     get_all_documents: str = "get_all_documents"
@@ -41,13 +42,11 @@ class API_routes(BaseSettings):
 
 
 class APIClient:
-    def __init__(self, verba_port: str | int, verba_base_url: str):
-        self.api_routes = API_routes(
-            verba_port=verba_port, verba_base_url=verba_base_url
-        )
+    def __init__(self):
+        self.api_routes = API_routes()
 
     def make_request(
-        self, method, endpoint, params=None, data=None
+        self, method, endpoint, params=None, data=None, json=None
     ) -> requests.Response:
         """Generic method to make any request to the backend
 
@@ -55,15 +54,19 @@ class APIClient:
         :param str endpoint: _description_
         :param params: defaults to None
         :param data: defaults to None
+        :param json: defaults to None
         :return _type_:  requests.Response
         """
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "content-type": "application/json",
+        }
         url = self.build_url(endpoint)
         log.info(f"Sending {method} request to {url}")
         return requests.request(
             method,
             url,
             params=params,
+            json=json,
             data=data,
             headers=headers,
         )
@@ -142,7 +145,7 @@ class APIClient:
         response = self.make_request(
             method="POST",
             endpoint=self.api_routes.load_data,
-            data=loadPayload.model_dump_json(),
+            json=loadPayload.model_dump(),
         )
         if response.status_code == requests.status_codes.codes["ok"]:
             try:
