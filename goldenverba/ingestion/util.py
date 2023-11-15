@@ -1,17 +1,18 @@
 import hashlib
 import ssl
 import os
+import time
 
 import openai
 import weaviate  # type: ignore[import]
 from weaviate import Client
 from typing import Optional
-from spacy.tokens import Doc
 
 from weaviate.embedded import EmbeddedOptions
 
 from wasabi import msg  # type: ignore[import]
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 def setup_client() -> Optional[Client]:
     """
@@ -23,6 +24,19 @@ def setup_client() -> Optional[Client]:
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     weaviate_url = os.environ.get("VERBA_URL", "")
     weaviate_key = os.environ.get("VERBA_API_KEY", "")
+
+    openai.api_key = openai_key
+    if "OPENAI_API_TYPE" in os.environ:
+        openai.api_type = os.getenv("OPENAI_API_TYPE")
+    if "OPENAI_API_BASE" in os.environ:
+        openai.api_base = os.getenv("OPENAI_API_BASE")
+    if "OPENAI_API_VERSION" in os.environ:
+        openai.api_version = os.getenv("OPENAI_API_VERSION")
+
+    if os.getenv("OPENAI_API_TYPE") == "azure":
+        openai_header_key = "X-Azure-Api-Key"
+    else:
+        openai_header_key = "X-OpenAI-Api-Key"
 
     if openai_key == "":
         msg.fail("OPENAI_API_KEY environment variable not set")
@@ -39,7 +53,7 @@ def setup_client() -> Optional[Client]:
 
         msg.info("VERBA_URL environment variable not set. Using Weaviate Embedded")
         client = weaviate.Client(
-            additional_headers={"X-OpenAI-Api-Key": openai.api_key},
+            additional_headers={openai_header_key: openai.api_key},
             embedded_options=EmbeddedOptions(
                 persistence_data_path="./.verba/local/share/",
                 binary_path="./.verba/cache/weaviate-embedded",
@@ -51,13 +65,12 @@ def setup_client() -> Optional[Client]:
     elif weaviate_key == "":
         msg.warn("VERBA_API_KEY environment variable not set")
 
-    openai.api_key = openai_key
     url = weaviate_url
     auth_config = weaviate.AuthApiKey(api_key=weaviate_key)
 
     client = weaviate.Client(
         url=url,
-        additional_headers={"X-OpenAI-Api-Key": openai.api_key},
+        additional_headers={openai_header_key: openai.api_key},
         auth_client_secret=auth_config,
     )
 
@@ -81,7 +94,7 @@ def hash_string(text: str) -> str:
     return str(sha256.hexdigest())
 
 
-def import_documents(client: Client, documents: list[Doc]) -> dict:
+def import_documents(client: Client, documents) -> dict:
     """Imports a list of document to the Weaviate Client and returns a list of UUID for the chunks to match
     @parameter client : Client - Weaviate Client
     @parameter documents : list[Document] - List of whole documents
@@ -103,7 +116,7 @@ def import_documents(client: Client, documents: list[Doc]) -> dict:
                 "doc_link": str(d.user_data["doc_link"]),
             }
 
-            uuid = client.batch.add_data_object(properties, "Document")
+            uuid = client.batch.add_data_object(properties, "Document",tenant=TENANT)
             uuid_key = str(d.user_data["doc_hash"]).strip().lower()
             doc_uuid_map[uuid_key] = uuid
 
@@ -111,7 +124,7 @@ def import_documents(client: Client, documents: list[Doc]) -> dict:
     return doc_uuid_map
 
 
-def import_chunks(client: Client, chunks: list[Doc], doc_uuid_map: dict) -> None:
+def import_chunks(client: Client, chunks, doc_uuid_map: dict) -> None:
     """Imports a list of chunks to the Weaviate Client and uses a list of UUID for the chunks to match
     @parameter client : Client - Weaviate Client
     @parameter chunks : list[Document] - List of chunks of documents
@@ -136,7 +149,9 @@ def import_chunks(client: Client, chunks: list[Doc], doc_uuid_map: dict) -> None
                 "chunk_id": int(d.user_data["_split_id"]),
             }
 
-            client.batch.add_data_object(properties, "Chunk")
+            client.batch.add_data_object(properties, "Chunk",tenant=TENANT)
+            wait_time_ms = int(os.getenv("VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS","0"))
+            time.sleep(float(wait_time_ms)/1000)
 
     msg.good("Imported all chunks")
 
@@ -155,7 +170,7 @@ def import_suggestions(client: Client, suggestions: list[str]) -> None:
                 "suggestion": d,
             }
 
-            client.batch.add_data_object(properties, "Suggestion")
+            client.batch.add_data_object(properties, "Suggestion",tenant=TENANT)
 
     msg.good("Imported all suggestions")
 
@@ -239,3 +254,29 @@ def import_weaviate_suggestions(client: Client) -> None:
         "How to retrieve all objects from weaviate?",
     ]
     import_suggestions(client, suggestion_list)
+
+
+def check_if_file_exits(client: Client, doc_name: str) -> bool:
+    results = (
+        client.query.get(
+            class_name="Document",
+            properties=[
+                "doc_name",
+            ],
+        )
+        .with_tenant(TENANT)
+        .with_where(
+            {
+                "path": ["doc_name"],
+                "operator": "Equal",
+                "valueText": doc_name,
+            }
+        )
+        .with_limit(1)
+        .do()
+    )
+
+    if results["data"]["Get"]["Document"]:
+        return True
+    else:
+        return False

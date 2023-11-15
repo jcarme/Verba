@@ -1,3 +1,69 @@
+# WL specific documentation
+
+This chapter is dedicated to our Verba WL patches and deployment.
+
+The repository is based on the _development_ version of Verba which was not stable. It includes several patches that are temporary, they are made to work specifically with our configuration, but on the long term we should rely on the _main_ branch of the upstream version of Verba. 
+
+To install Verba:
+- First you should install the Verba package, preferable in a dedicated environment (conda): 
+```
+pip install -e .
+```
+- Then create your own set_env file:
+```
+copy set_env.template.sh set_end.sh
+```
+- Edit `sel_env.sh` and change variables according to your environment. Set your Azure OpenAI endpoint, key and resourceName (first part of your endpoint URL)
+- __Weaviate won't work if your endpoint is not XXX.openai.azure.com__ So if you are using the proxy a workaround is to edit your `/etc/hosts` and to add:
+```
+<your endpoint IP> <your resource name>.openai.azure.com
+```
+- Go to the `weaviate_docker` repository and, in another terminal, run:
+```
+docker-compose up
+```
+- Finally, run:
+```
+source set_env.sh
+verba start
+```
+
+If everything is OK you should be able to connect to the Verba web app at `localhost:8000` and to the API doc at `localhost:8000/docs`
+
+## Streamlit front-end
+
+We developed our own chatbot front-end using Streamlit which is not verba branded. __Note__ : You must have a running instance of verba.
+
+To use it :
+
+1 - Install the custom package
+
+```bash
+pip install -e streamlit_rag
+```
+
+2 - Start streamlit
+
+You must know your `VERBA_PORT` and `BASE_VERBA_API_URL`
+
+```bash
+streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  
+```
+
+## Ngnix config
+
+Streamlit app behind a ngnix proxy is not straightforward. To make it simple, there is a bash script that generates the nginx config for multi tenants `generate_ngnix_config.sh`
+
+You must create a csv file with 3 columns `verba_port,url_prefix,streamlit_port` (don't forget to add a blank line at the end)
+Then run this to generate the ngnix config :
+
+```bash
+ ./generate_ngnix_config.sh --csv_file=tenant_mapping.csv --output_file="config"   
+```
+
+You will have a new file `config`. Copy past the content in `/etc/nginx/sites-enabled/reverse-proxy`.
+Then run the command `sudo service nginx reload\"` to apply the changes.
+
 # Verba 
 ## 🐕 The Golden RAGtriever
 
@@ -71,7 +137,15 @@ If you're unfamiliar with Docker, you can learn more about it [here](https://doc
 - ```git clone https://github.com/weaviate/Verba.git```
 
 2. **Deploy using Docker**
-- ```docker-compose up```
+- ``` docker compose up -d ```
+
+3. **Init and import default data**
+- ```docker compose run --rm verba verba init```
+- ```docker compose run --rm verba verba import```
+
+4. **Importing your own data**
+- ```cp /tmp/somefile.txt ./data```
+- ```docker compose run --rm verba verba import --path /data/somefile.txt```
 
 ## 🌐 Selecting the Optimal Weaviate Deployment for Verba
 

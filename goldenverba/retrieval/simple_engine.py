@@ -2,8 +2,10 @@ from goldenverba.retrieval.interface import VerbaQueryEngine
 
 from typing import Optional
 import json
+import os
 from wasabi import msg
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class SimpleVerbaQueryEngine(VerbaQueryEngine):
     def query(self, query_string: str, model: str = None) -> tuple:
@@ -11,6 +13,13 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         @parameter query_string : str - Search query
         @returns tuple - (system message, iterable list of results)
         """
+        #TODO right now it's unclear how the class name will
+#be chosen by the Verba team in the definitive 0.3
+#version with the new modular design
+#as a quick dirty fix we hardcode it to the value that
+#we need.
+        chunk_class_name = "Chunk_text2vec_openai"
+
         # check semantic cache
         results, system_msg = self.retrieve_semantic_cache(query_string)
 
@@ -19,9 +28,10 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
 
         query_results = (
             VerbaQueryEngine.client.query.get(
-                class_name="Chunk",
+                class_name=chunk_class_name,
                 properties=["text", "doc_name", "chunk_id", "doc_uuid", "doc_type"],
             )
+            .with_tenant(TENANT)
             .with_hybrid(query=query_string)
             .with_generate(
                 grouped_task=f"You are a chatbot for RAG, answer the query {query_string} based on the given context. Only use information provided in the context. Only if asked or required provide code examples based on the topic at the end of your answer encapsulated with ```programming-language ```"
@@ -34,7 +44,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         if "data" not in query_results:
             raise Exception(query_results)
 
-        results = query_results["data"]["Get"]["Chunk"]
+        results = query_results["data"]["Get"][chunk_class_name]
 
         if results[0]["_additional"]["generate"]["error"]:
             system_msg = results[0]["_additional"]["generate"]["error"]
@@ -52,6 +62,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         document = VerbaQueryEngine.client.data_object.get_by_id(
             doc_id,
             class_name="Document",
+            tenant=TENANT
         )
         return document
 
@@ -63,6 +74,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
             VerbaQueryEngine.client.query.get(
                 class_name="Document", properties=["doc_name", "doc_type", "doc_link"]
             )
+            .with_tenant(TENANT)
             .with_additional(properties=["id"])
             .with_limit(1000)
             .do()
@@ -79,6 +91,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
             VerbaQueryEngine.client.query.get(
                 class_name="Document", properties=["doc_name", "doc_type", "doc_link"]
             )
+            .with_tenant(TENANT)
             .with_bm25(query, properties=["doc_name"])
             .with_additional(properties=["id"])
             .with_limit(20)
@@ -97,18 +110,30 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         @parameter dist - float - Distance threshold
         @returns Optional[dict] - List of results or None
         """
+        return None, None
+        #TODO right now it's unclear how the class name will
+        #be chosen by the Verba team in the definitive 0.3
+        #version with the new modular design
+        #as a quick dirty fix we hardcode it to the value that
+        #we need.
+        cache_class_name = "Cache_text2vec_openai"
+
         query_results = (
             VerbaQueryEngine.client.query.get(
-                class_name="Cache",
+                class_name=cache_class_name,
                 properties=["query", "results", "system"],
             )
+            .with_tenant(TENANT)
             .with_near_text(content={"concepts": query})
             .with_additional(properties=["distance"])
             .with_limit(1)
             .do()
         )
 
-        results = query_results["data"]["Get"]["Cache"]
+        if "data" in query_results:
+            results = query_results["data"]["Get"][cache_class_name]
+        else:
+            return None, None
 
         if not results:
             return None, None
@@ -132,6 +157,13 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
         @parameter system : str - System message
         @returns None
         """
+        #TODO right now it's unclear how the class name will
+        #be chosen by the Verba team in the definitive 0.3
+        #version with the new modular design
+        #as a quick dirty fix we hardcode it to the value that
+        #we need.
+        cache_class_name = "Cache_text2vec_openai"
+        
         with VerbaQueryEngine.client.batch as batch:
             batch.batch_size = 1
             properties = {
@@ -140,7 +172,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
                 "system": system,
             }
             msg.good(f"Saved to cache for query {query}")
-            VerbaQueryEngine.client.batch.add_data_object(properties, "Cache")
+            VerbaQueryEngine.client.batch.add_data_object(properties, cache_class_name,tenant=TENANT)
 
     def get_suggestions(self, query: str) -> list[str]:
         """Retrieve suggestions based on user query
@@ -152,6 +184,7 @@ class SimpleVerbaQueryEngine(VerbaQueryEngine):
                 class_name="Suggestion",
                 properties=["suggestion"],
             )
+            .with_tenant(TENANT)
             .with_bm25(query=query)
             .with_additional(properties=["score"])
             .with_limit(3)
