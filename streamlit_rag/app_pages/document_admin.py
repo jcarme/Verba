@@ -8,34 +8,23 @@ from verba_utils.api_client import APIClient, test_api_connection
 from verba_utils.payloads import LoadPayload
 from verba_utils.utils import doc_id_from_filename, get_ordered_all_filenames
 
-BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
-
 log = logging.getLogger(__name__)
+
+BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
+try:
+    CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 300))
+except ValueError:
+    CHUNK_SIZE = 300
+    log.warn(
+        f"Can't cast os.environ.get('CHUNK_SIZE', 300) to int, value : {os.environ.get('CHUNK_SIZE', 300)}. Setting it to default {CHUNK_SIZE}"
+    )
 
 
 st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
-    page_title="WL RAG Documents",
+    page_title="MS RAG Documents",
     page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
-)
-
-
-st.sidebar.header("Config")
-chuck_size = st.sidebar.slider(
-    "Select chunk size",
-    min_value=50,
-    max_value=1000,
-    value=100,
-    step=50,
-)
-
-chunk_overlap = st.sidebar.slider(
-    "Select chunk overlap",
-    min_value=10,
-    max_value=500,
-    value=50,
-    step=10,
 )
 
 
@@ -51,7 +40,7 @@ is_verba_responding = test_api_connection(api_client)
 
 
 if not is_verba_responding["is_ok"]:  # verba api not responding
-    st.title("📕 Document administration panel🔴")
+    st.title("📕 Document administration 🔴")
     if "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]:
         st.error(
             f"Your openapi key is not set yet. Go set it in **API Key administration** page",
@@ -68,19 +57,8 @@ if not is_verba_responding["is_ok"]:  # verba api not responding
         log.debug("Refresh page")
 
 else:
-    test_open_ai_token = api_client.test_openai_api_key()
-    if test_open_ai_token["status"] != "200":  # token set but not working
-        st.title("📕 Document administration panel 🔴")
-        st.error(
-            f"OpenAI API token set but is not working. Go fix it in **API Key administration** page",
-            icon="🚨",
-        )
-
-
-if (
-    is_verba_responding["is_ok"] and test_open_ai_token["status"] == "200"
-):  # verba api connected and token is working
-    st.title("📕 Document administration panel 🟢")
+    # verba api connected
+    st.title("📕 Document administration 🟢")
 
     # define 3 document sections
     inspect_tab, insert_tab, delete_tab = st.tabs(
@@ -147,8 +125,8 @@ if (
                     chunker="WordChunker",
                     embedder="ADAEmbedder",
                     document_type=document_type,
-                    chunkUnits=chuck_size,
-                    chunkOverlap=chunk_overlap,
+                    chunkUnits=CHUNK_SIZE,
+                    chunkOverlap=50,
                 )
                 for file in uploaded_files:
                     if file.name in already_uploaded_files:
@@ -166,23 +144,11 @@ if (
                         + "` `".join([e for e in loadPayload.fileNames])
                         + "`. Please wait. Expect about 1 second per KB of text."
                     ):
-                        debug_loadPayload = {
-                            "reader": "SimpleReader",
-                            "chunker": "WordChunker",
-                            "embedder": "ADAEmbedder",
-                            "fileBytes": ["SW52b2ljZSBQYXltZW50IE1ldGhvZHMK"],
-                            "fileNames": ["Τρόποι Εξόφλησης Τιμολογίου.txt"],
-                            "filePath": "",
-                            "document_type": "Documentation",
-                            "chunkUnits": 100,
-                            "chunkOverlap": 50,
-                        }
                         response = api_client.load_data(
-                            LoadPayload.model_validate(debug_loadPayload)
+                            LoadPayload.model_validate(loadPayload)
                         )
                         if str(response.status) == "200":
                             st.info(f"✅ Documents successfully uploaded")
-                            st.balloons()
                         else:
                             st.error(
                                 f'Something went wrong when submitting documents {loadPayload.fileNames} http response  [{response.status}] -> "{response.status_msg}"'
@@ -222,7 +188,6 @@ if (
                             document_to_delete_id
                         )
                         if is_document_deleted:  # delete ok
-                            st.balloons()
                             st.info(f"✅ {document_to_delete} successfully deleted")
                         else:  # delete failed
                             st.warning(

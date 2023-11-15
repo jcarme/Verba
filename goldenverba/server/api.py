@@ -643,7 +643,31 @@ async def test_openai_api_key():
         )
     else:
         try:
-            openai.Model.list()
+            openai.api_key = os.environ.get("OPENAI_API_KEY", "")
+            if "OPENAI_API_TYPE" in os.environ:
+                openai.api_type = os.getenv("OPENAI_API_TYPE")
+            if "OPENAI_API_BASE" in os.environ:
+                openai.api_base = os.getenv("OPENAI_API_BASE")
+            if "OPENAI_API_VERSION" in os.environ:
+                openai.api_version = os.getenv("OPENAI_API_VERSION")
+
+            chat_completion_arguments = {
+                "model": "gpt-35-turbo",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": f"You are a Teacher/ Professor",
+                    },
+                    {
+                        "role": "user",
+                        "content": "hello",
+                    },
+                ],
+            }
+            if openai.api_type == "azure":
+                chat_completion_arguments["deployment_id"] = "gpt-35-turbo"
+
+            _ = openai.ChatCompletion.create(**chat_completion_arguments)
         except openai.error.AuthenticationError as e:
             msg.warn(f"Something went wrong when testing your API key : {e}")
             return JSONResponse(
