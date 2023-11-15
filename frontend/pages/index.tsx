@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChatComponent, Message } from "../components/ChatComponent";
 import { DocumentComponent } from "../components/DocumentComponent";
+import ImportModalComponent from "../components/ImportModalComponent";
+import ConfigModal from "../components/ConfigModal";
+import { FaPlus } from "react-icons/fa";
 import CountUp from 'react-countup';
 
 export const getApiHost = () => {
@@ -37,6 +40,7 @@ export const DOC_TYPE_COLOR_HOVER: Record<DocType, string> = {
 };
 
 export default function Home() {
+  const [showModal, setShowModal] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [userInput, setUserInput] = useState("");
   const [documentTitle, setDocumentTitle] = useState("");
@@ -223,6 +227,7 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-10 text-gray-900">
+      {showModal && <ImportModalComponent onClose={() => setShowModal(false)} apiHost={apiHost} />}
       <div className="flex flex-col w-full items-start">
         <div className="mb-2">
           <div className="flex justify-between items-center w-full"> {/* <-- flexbox container */}
@@ -245,6 +250,16 @@ export default function Home() {
                 </span>
               </div>
             </div>
+            <div className="ml-16 animate-pop-in">
+              <button
+                className="flex items-center space-x-2 bg-gray-200 text-black p-3  rounded-lg  hover:bg-green-400 border-2 border-black hover:border-white hover-container shadow-md"
+                onClick={() => setShowModal(true)}
+              >
+                <FaPlus />
+                <span>Add Documents</span>
+              </button>
+            </div>
+            <ConfigModal component="embedders" apiHost={apiHost}></ConfigModal>
           </div>
         </div>
         <div className="p-1 lg:flex overflow-x-auto justify-center h-32 w-full mb-2 hidden">
@@ -278,8 +293,8 @@ export default function Home() {
           <div className="lg:w-1/2 md:w-full sm:w-full p-2 border-2 shadow-lg lg:h-2/3 sm:h-full md:h-full border-gray-900 rounded-xl animate-pop-in">
 
             {/* Header */}
-            <div className="rounded-t-xl bg-yellow-200 p-4 flex justify-between items-center">
-              Verba Chat
+            <div className="rounded-t-xl bg-gray-200 p-4 flex justify-between items-center">
+              🐕 RAGtriever Chat
               <div className="text-xs text-white font-mono flex justify-center">
                 <a href="https://github.com/weaviate/Verba" target="_blank" rel="noopener noreferrer">
                   <span
@@ -288,12 +303,12 @@ export default function Home() {
                       : 'bg-red-500 hover:bg-red-400'
                       }`}
                   >
-                    Demo {apiStatus}
+                    {apiStatus + " v0.3.0"}
                   </span>
                 </a>
                 <a href="https://www.weaviate.io" target="_blank" rel="noopener noreferrer">
                   <span
-                    className="rounded-indicator text-white bg-green-500 hover:bg-green-400 ml-2 p-2 hover-container">
+                    className="rounded-indicator text-white bg-gray-400 hover:bg-gray-300 ml-2 p-2 hover-container">
                     Powered by Weaviate ❤️
                   </span>
                 </a>
@@ -308,7 +323,7 @@ export default function Home() {
 
             {/* Input area */}
             <form
-              className="rounded-b-xl bg-gray-800 p-4 relative"
+              className="rounded-b-xl bg-gray-500 p-4 relative"
               onSubmit={handleSendMessage}
             >
               <input
