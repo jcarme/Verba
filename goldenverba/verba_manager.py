@@ -37,6 +37,8 @@ class VerbaManager:
         self.verify_installed_libraries()
         self.verify_variables()
 
+        self.last_error=None
+
         # Check if all schemas exist for all possible vectorizers
         for vectorizer in schema_manager.VECTORIZERS:
             schema_manager.init_schemas(self.client, vectorizer, False, True)
@@ -68,13 +70,15 @@ class VerbaManager:
         modified_documents = self.chunker_manager.chunk(
             filtered_documents, units, overlap
         )
-
-        if self.embedder_manager.embed(modified_documents, client=self.client):
-            msg.good("Embedding successful")
-            return modified_documents
-        else:
-            msg.fail("Embedding failed")
-            return []
+        try:
+            if self.embedder_manager.embed(modified_documents, client=self.client):
+                msg.good("Embedding successful")
+                return modified_documents
+            else:
+                msg.fail("Embedding failed")
+                return []
+        except Exception as e:
+            raise Exception(f"Embedding failed.\nCause: {e}\nPossible root cause:{self.pop_last_error()}" )
 
     def reader_set_reader(self, reader: str) -> bool:
         available, message = self.check_verba_component(
@@ -198,6 +202,7 @@ class VerbaManager:
                         if "result" in result and "errors" in result["result"]:
                             if "error" in result["result"]["errors"]:
                                 msg.fail(result["result"])
+                                self.last_error=result["result"]
 
             client.batch.configure(callback=batch_callback)
 
@@ -205,6 +210,11 @@ class VerbaManager:
             msg.fail("Connection to Weaviate failed")
 
         return client
+    
+    def pop_last_error(self):
+        last_error=self.last_error
+        self.last_error = None
+        return last_error
 
     def verify_installed_libraries(self) -> None:
         """
