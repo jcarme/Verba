@@ -88,3 +88,12 @@ class GetComponentPayload(BaseModel):
 class SetComponentPayload(BaseModel):
     component: str
     selected_component: str
+
+
+class APIKeyPayload(BaseModel):
+    key: str
+
+
+class APIKeyResponsePayload(BaseModel):
+    status: str
+    status_msg: str
