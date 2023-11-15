@@ -20,32 +20,66 @@ st.set_page_config(
     page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
 )
 
-if not "verba_admin" in st.session_state:
-    # when streamlit is started and we bypass the home page session_state["verba_admin"] is not set
-    # the user has to go to main page and come back
+
+st.sidebar.header("Config")
+chuck_size = st.sidebar.slider(
+    "Select chunk size",
+    min_value=50,
+    max_value=1000,
+    value=100,
+    step=50,
+)
+
+chunk_overlap = st.sidebar.slider(
+    "Select chunk overlap",
+    min_value=10,
+    max_value=500,
+    value=50,
+    step=10,
+)
+
+
+if (not "VERBA_PORT" in os.environ) or (not "VERBA_BASE_URL" in os.environ):
     st.warning(
-        '"verba_admin" not found in streamlit session_state. To solve this, good to Home page and reload the page.'
+        '"VERBA_PORT" or "VERBA_BASE_URL" not found in env variable. To solve this, good to Home page and reload the page.'
     )
     st.stop()
 else:
-    api_client = APIClient(
-        verba_port=st.session_state["verba_admin"]["verba_port"],
-        verba_base_url=st.session_state["verba_admin"]["verba_base_url"],
-    )
+    api_client = APIClient()
 
 is_verba_responding = test_api_connection(api_client)
 
+
 if not is_verba_responding["is_ok"]:  # verba api not responding
-    st.title("📕 Document administration panel 🔴")
-    st.error(
-        f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
-        icon="🚨",
-    )
+    st.title("📕 Document administration panel🔴")
+    if "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]:
+        st.error(
+            f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+            icon="🚨",
+        )
+
+    else:
+        st.error(
+            f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
+            icon="🚨",
+        )
     if st.button("🔄 Try again", type="primary"):
         # when the button is clicked, the page will refresh by itself :)
         log.debug("Refresh page")
 
-else:  # verba api connected
+else:
+    test_open_ai_token = api_client.test_openai_api_key()
+    if test_open_ai_token["status"] != "200":  # token set but not working
+        st.title("📕 Document administration panel 🔴")
+        st.error(
+            f"OpenAI API token set but is not working. Go fix it in **API Key administration** page",
+            icon="🚨",
+        )
+
+
+if (
+    is_verba_responding["is_ok"] and test_open_ai_token["status"] == "200"
+):  # verba api connected and token is working
     st.title("📕 Document administration panel 🟢")
 
     # define 3 document sections
@@ -113,8 +147,8 @@ else:  # verba api connected
                     chunker="WordChunker",
                     embedder="ADAEmbedder",
                     document_type=document_type,
-                    chunkUnits=100,
-                    chunkOverlap=50,
+                    chunkUnits=chuck_size,
+                    chunkOverlap=chunk_overlap,
                 )
                 for file in uploaded_files:
                     if file.name in already_uploaded_files:
@@ -132,7 +166,20 @@ else:  # verba api connected
                         + "` `".join([e for e in loadPayload.fileNames])
                         + "`. Please wait. Expect about 1 second per KB of text."
                     ):
-                        response = api_client.load_data(loadPayload)
+                        debug_loadPayload = {
+                            "reader": "SimpleReader",
+                            "chunker": "WordChunker",
+                            "embedder": "ADAEmbedder",
+                            "fileBytes": ["SW52b2ljZSBQYXltZW50IE1ldGhvZHMK"],
+                            "fileNames": ["Τρόποι Εξόφλησης Τιμολογίου.txt"],
+                            "filePath": "",
+                            "document_type": "Documentation",
+                            "chunkUnits": 100,
+                            "chunkOverlap": 50,
+                        }
+                        response = api_client.load_data(
+                            LoadPayload.model_validate(debug_loadPayload)
+                        )
                         if str(response.status) == "200":
                             st.info(f"✅ Documents successfully uploaded")
                             st.balloons()

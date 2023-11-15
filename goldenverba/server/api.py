@@ -4,6 +4,7 @@ import shelve
 
 from wasabi import msg  # type: ignore[import]
 
+import openai
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +42,20 @@ def store_api_key(key):
     weaviate_tenant = os.getenv('WEAVIATE_TENANT',default='default_tenant')
     with shelve.open("key_cache") as db:
         db[weaviate_tenant] = key
+
+def remove_api_key():
+    global manager
+    manager = None
+
+    os.environ.pop("OPENAI_API_KEY", None)
+
+    weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
+    with shelve.open("key_cache") as db:
+        if weaviate_tenant in db:
+            del db[weaviate_tenant]
+        else:
+            msg.info(f"{weaviate_tenant} is not in the shelve database.")
+
 
 def check_api_key():
     if "OPENAI_API_KEY" in os.environ:
@@ -570,3 +585,77 @@ async def set_openai_key(payload: APIKeyPayload):
                 "status_msg": "OpenAI key not set",
             }
         )
+
+@app.post("/api/unset_openai_key")
+async def unset_openai_key():
+    try:
+        remove_api_key()
+        init_manager()
+        return JSONResponse(
+            content={
+                "status": "200",
+                "status_msg": "OpenAI key unset",
+            }
+        )
+    except Exception as e:
+        msg.warn(f"Something when wrong when removing OpenAPI key : {e}")
+        return JSONResponse(
+            content={
+                "status": "400",
+                "status_msg": "Something went wrong when trying to unset OpenAPI key",
+            }
+        )
+
+
+@app.get("/api/get_openai_key_preview")
+async def get_openai_key_preview():
+    len_preview = 3
+    if not "OPENAI_API_KEY" in os.environ:
+        return JSONResponse(
+            content={
+                "status": "400",
+                "status_msg": "No OPENAI_API_KEY set",
+            }
+        )
+    else:
+        preview = (
+            os.environ["OPENAI_API_KEY"][:len_preview]
+            + "*" * (len(os.environ["OPENAI_API_KEY"]) - 2 * len_preview)
+            + os.environ["OPENAI_API_KEY"][-len_preview:]
+        )
+
+        return JSONResponse(
+            content={
+                "status": "200",
+                "status_msg": preview,
+            }
+        )
+
+
+@app.get("/api/test_openai_api_key")
+async def test_openai_api_key():
+    if not "OPENAI_API_KEY" in os.environ:
+        return JSONResponse(
+            content={
+                "status": "400",
+                "status_msg": "No OPENAI_API_KEY set",
+            }
+        )
+    else:
+        try:
+            openai.Model.list()
+        except openai.error.AuthenticationError as e:
+            msg.warn(f"Something went wrong when testing your API key : {e}")
+            return JSONResponse(
+                content={
+                    "status": "400",
+                    "status_msg": f"Something went wrong when testing your API key : {e}",
+                }
+            )
+        else:
+            return JSONResponse(
+                content={
+                    "status": "200",
+                    "status_msg": "OpenAPI key is working",
+                }
+            )
