@@ -130,7 +130,7 @@ else:  # verba api connected
                     with st.spinner(
                         "Uploading `"
                         + "` `".join([e for e in loadPayload.fileNames])
-                        + "`..."
+                        + "`. Please wait. Expect about 1 second per KB of text."
                     ):
                         response = api_client.load_data(loadPayload)
                         if str(response.status) == "200":
@@ -141,7 +141,7 @@ else:  # verba api connected
                                 f'Something went wrong when submitting documents {loadPayload.fileNames} http response  [{response.status}] -> "{response.status_msg}"'
                             )
                             st.info(
-                                "Please try to upload our documents one by one to find out which one can't be sent (probably encoding issue)"
+                                "Please check the error message above. If it is an Error 429 it means that the API is overloaded. Please try again later. If it is an encoding related error you might try to upload files one by one to check which one is causing the error."
                             )
                             st.title("Debug info :")
                             st.write("Sent POST payload :")
