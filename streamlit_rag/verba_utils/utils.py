@@ -1,12 +1,16 @@
 import logging
 import pathlib
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import streamlit as st
+from verba_utils.api_client import APIClient, test_api_connection
 from verba_utils.payloads import (
     DocumentSearchQueryResponsePayload,
+    QueryResponsePayload,
     SearchQueryResponsePayload,
 )
+
+log = logging.getLogger(__name__)
 
 
 def setup_logging(
@@ -28,6 +32,52 @@ def write_centered_text(text: str):
         unsafe_allow_html=True,
     )
     st.write("\n")
+
+
+def generate_answer(
+    prompt: str,
+    api_client: APIClient,
+    min_nb_words: int = None,
+    max_nb_words: int = None,
+    return_documents: bool = False,
+) -> str | Tuple[str, List]:
+    """
+    Generate answers to a list of questions. Uses the previously defined query_verba
+    :param prompt: str
+    :param api_client: APIClient
+    :param min_nb_words: int
+    :param max_nb_words: int
+    :param return_documents: bool default False. If true returns (text_response, documents_list)
+    :returns: str | Tuple(str, List)
+    """
+
+    if max_nb_words is None and min_nb_words is not None:
+        max_nb_words = min_nb_words * 2
+    if min_nb_words is None and max_nb_words is not None:
+        min_nb_words = max_nb_words // 2
+
+    if min_nb_words is not None:  # so max_nb_words is not None either
+        question_appendix = f" Please provide an elaborated answer in {min_nb_words} to {max_nb_words} words."
+    else:
+        question_appendix = ""
+
+    elaborated_question = remove_non_utf8_characters(
+        input_str=str(prompt) + str(question_appendix)
+    )
+    log.info(f"Cleaned user query : {elaborated_question}")
+
+    if test_api_connection(api_client):
+        response = api_client.query(elaborated_question)
+    else:
+        log.error(
+            f"Verba API not available {api_client.build_url(api_client.api_routes.health)}, query not submitted"
+        )
+        response = QueryResponsePayload(system="Verba API not available")
+
+    if return_documents:
+        return response.system, response.documents
+    else:
+        return response.system
 
 
 def display_centered_image(

@@ -5,6 +5,7 @@ import requests
 from pydantic import Field
 from pydantic_core._pydantic_core import ValidationError
 from pydantic_settings import BaseSettings
+from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 from verba_utils.payloads import (
     APIKeyPayload,
     APIKeyResponsePayload,
@@ -79,7 +80,14 @@ class APIClient:
         """
         return f"{self.api_routes.base_api_url}/{endpoint}"
 
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
+    )
     def health_check(self) -> requests.Response:
+        # If this function fails three times in a row,
+        # it will stop being retried after approximately 6 seconds
+        # (2 seconds for the second attempt + 4 seconds for the third attempt).
+        # This is meant to avoid error when verba is starting
         return self.make_request("GET", self.api_routes.health)
 
     def query(self, data: str) -> QueryResponsePayload:
@@ -232,7 +240,7 @@ def test_api_connection(api_client: APIClient) -> dict:
                 "is_ok": False,
                 "error_details": f"API health status code : {response.status_code} - API health content : {response.json()}",
             }
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, RetryError) as e:
         log.error(f"Connection error, make sure verba is running details : {e}")
         return {
             "is_ok": False,
