@@ -157,17 +157,20 @@ else:
                                 "Please check the error message above. If it is an Error 429 it means that the API is overloaded. Please try again later. If it is an encoding related error you might try to upload files one by one to check which one is causing the error."
                             )
                             st.title("Debug info :")
-                            st.write("Sent POST payload :")
-                            st.write(loadPayload)
-                            st.write("Received response :")
-                            st.write(response)
+                            with st.expander("Sent POST payload :"):
+                                st.write(loadPayload)
+                            with st.expander("Received response :"):
+                                st.write(response)
 
     with delete_tab:
-        st.header("Delete documents")
         all_documents = api_client.get_all_documents()
         if not len(all_documents.documents) > 0:  # no uploaded documents
-            st.write("No document uploaded yet")
+            st.header("No document uploaded yet")
         else:
+            st.header("Delete one document")
+            if st.button("🔄 Refresh", type="primary"):
+                # when the button is clicked, the page will refresh by itself :)
+                log.debug("Refresh page")
             document_to_delete = st.selectbox(
                 "Select the document you want to delete",
                 get_ordered_all_filenames(all_documents.documents),
@@ -181,7 +184,6 @@ else:
                 )
                 if st.button(
                     "🗑️ Delete document (irreversible)",
-                    type="primary",
                 ):
                     with st.spinner("Sending delete request..."):
                         is_document_deleted = api_client.delete_document(
@@ -193,3 +195,24 @@ else:
                             st.warning(
                                 f"🚨 Something went wrong when trying to delete {document_to_delete}"
                             )
+            st.divider()
+            st.header("Delete all documents")
+            if st.toggle(
+                f"I am sure I want to delete all documents (total: {len(all_documents.documents)})"
+            ):  # set a first button to avoid miss clicks
+                if st.button("🗑️ Remove all documents (irreversible)", type="primary"):
+                    with st.spinner("Deleting all your documents..."):
+                        for doc in get_ordered_all_filenames(all_documents.documents):
+                            curr_doc_to_delete_id = doc_id_from_filename(
+                                doc,
+                                all_documents,
+                            )
+                            is_document_deleted = api_client.delete_document(
+                                curr_doc_to_delete_id
+                            )
+                            if is_document_deleted:  # delete ok
+                                st.info(f"✅ {doc} successfully deleted")
+                            else:  # delete failed
+                                st.warning(
+                                    f"🚨 Something went wrong when trying to delete {doc}"
+                                )

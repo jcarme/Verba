@@ -150,6 +150,9 @@ class APIClient:
         return self.make_request("GET", self.api_routes.get_components)
 
     def load_data(self, loadPayload: LoadPayload) -> LoadResponsePayload:
+        log.info(
+            f"Loading data with {len(loadPayload.fileNames)} documents (chunk size: {loadPayload.chunkUnits}, chunker: {loadPayload.chunker}, chunkOverlap: {loadPayload.chunkOverlap}, embedder: {loadPayload.embedder})"
+        )
         response = self.make_request(
             method="POST",
             endpoint=self.api_routes.load_data,
