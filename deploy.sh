@@ -1,14 +1,14 @@
 #!/bin/bash
 export OPENAI_API_TYPE="azure"
-export OPENAI_API_BASE="https://worldlinegptfr.openai.azure.com"
-export OPENAI_API_VERSION="2023-07-01-preview"
-export AZURE_OPENAI_RESOURCE_NAME="worldlinegptfr"
+export OPENAI_API_BASE="https://wlgptpocrelay.azurewebsites.net"
+export OPENAI_API_VERSION="2023-05-15"
+export AZURE_OPENAI_RESOURCE_NAME="wlgptpocrelay"
 export AZURE_OPENAI_EMBEDDING_MODEL="text-embedding-ada-002"
 export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="200"
 export VERBA_MODEL="gpt-4"
 export VERBA_URL="http://localhost:8080"
 export BASE_VERBA_API_URL="http://localhost"
-export CHUNK_SIZE=300
+export CHUNK_SIZE=100
 
 TENANT_NUMBER=$1
 # Check that the tenant number is not empty and a number
