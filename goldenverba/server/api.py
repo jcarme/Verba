@@ -652,7 +652,7 @@ async def test_openai_api_key():
                 openai.api_version = os.getenv("OPENAI_API_VERSION")
 
             chat_completion_arguments = {
-                "model": "gpt-35-turbo",
+                "model": os.environ["VERBA_MODEL"],
                 "messages": [
                     {
                         "role": "system",
@@ -665,7 +665,7 @@ async def test_openai_api_key():
                 ],
             }
             if openai.api_type == "azure":
-                chat_completion_arguments["deployment_id"] = "gpt-35-turbo"
+                chat_completion_arguments["deployment_id"] = os.environ["VERBA_MODEL"]
 
             _ = openai.ChatCompletion.create(**chat_completion_arguments)
         except openai.error.AuthenticationError as e:
