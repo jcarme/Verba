@@ -1,13 +1,14 @@
 #!/bin/bash
 export OPENAI_API_TYPE="azure"
-export OPENAI_API_BASE="https://worldlinegptfr.openai.azure.com"
-export OPENAI_API_VERSION="2023-07-01-preview"
-export AZURE_OPENAI_RESOURCE_NAME="worldlinegptfr"
+export OPENAI_API_BASE="https://wlgptpocrelay.azurewebsites.net"
+export OPENAI_API_VERSION="2023-05-15"
+export AZURE_OPENAI_RESOURCE_NAME="wlgptpocrelay"
 export AZURE_OPENAI_EMBEDDING_MODEL="text-embedding-ada-002"
-export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="500"
+export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="200"
 export VERBA_MODEL="gpt-4"
 export VERBA_URL="http://localhost:8080"
 export BASE_VERBA_API_URL="http://localhost"
+export CHUNK_SIZE=100
 
 TENANT_NUMBER=$1
 # Check that the tenant number is not empty and a number
@@ -46,7 +47,7 @@ echo "Verba started"
 
 # Start Streamlit, store standard and error logs in streamlit.$1.log, do not erase the previous logs
 echo "Starting Streamlit on port $STREAMLIT_PORT (url will be http://localhost:$STREAMLIT_PORT/$URL_PREFIX)..."
-(python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL  >> streamlit.$1.log 2>&1) &
+(python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL --chunk_size $CHUNK_SIZE  >> streamlit.$1.log 2>&1) &
 echo "Streamlit started"
 
 wait
