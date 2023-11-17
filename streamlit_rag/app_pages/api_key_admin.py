@@ -27,8 +27,6 @@ else:
 
 is_verba_responding = test_api_connection(api_client)
 
-title = "🤖 WL RAG Chatbot"
-
 if not is_verba_responding["is_ok"] and not (
     "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]
 ):  # verba api not responding
@@ -63,14 +61,13 @@ else:
             if show:
                 st.markdown(f"`{key_preview}`")
             else:
-                toto = "*" * len(key_preview)
-                st.markdown(f"`{toto}`")
+                st.markdown(f"`{'*' * len(key_preview)}`")
 
         with col3:
             if st.button("🧪Test API key"):
-                res = api_client.test_openai_api_key()
+                with st.spinner("Testing your API key..."):
+                    res = api_client.test_openai_api_key()
                 if res["status"] == "200":
-                    st.balloons()
                     st.success("✅ API key is working")
                 else:
                     st.error(

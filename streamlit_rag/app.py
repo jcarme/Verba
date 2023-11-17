@@ -1,10 +1,16 @@
+import logging
 import os
 import pathlib
 
 import click
 import streamlit as st
 from st_pages import Page, show_pages
-from verba_utils.utils import display_centered_image, setup_logging, write_centered_text
+from verba_utils.api_client import APIClient, test_api_connection
+from verba_utils.utils import (
+    append_documents_in_session_manager,
+    generate_answer,
+    setup_logging,
+)
 
 BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__))
 
@@ -21,7 +27,8 @@ BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__))
     type=str,
     help="Verba base api url usually in our case http://localhost)",
 )
-def main(verba_port, verba_base_url):
+@click.option("--chunk_size", default=300, type=int, help="Size of the chunk")
+def main(verba_port, verba_base_url, chunk_size):
     if not (verba_port and verba_base_url):
         st.error(
             f"""
@@ -34,91 +41,122 @@ def main(verba_port, verba_base_url):
 
     os.environ["VERBA_PORT"] = verba_port
     os.environ["VERBA_BASE_URL"] = verba_base_url
+    os.environ["CHUNK_SIZE"] = str(chunk_size)
 
-    st.header("LLM and RAG in a nutshell", divider="grey")
+    log = logging.getLogger(__name__)
 
-    write_centered_text(
-        """
-1 - \"Large Language Model\" refers to a highly advanced AI program capable of comprehending and producing human-like text.
-        """
-    )
+    if (not "VERBA_PORT" in os.environ) or (not "VERBA_BASE_URL" in os.environ):
+        st.warning(
+            '"VERBA_PORT" or "VERBA_BASE_URL" not found in env variable. To solve this, good to Home page and reload the page.'
+        )
+        st.stop()
+    else:
+        api_client = APIClient()
 
-    write_centered_text(
-        """
-2 - \"Retrieval-Augmented\" component extends the LLM's abilities by allowing it to search and extract information from extensive databases. RAG models are better at avoiding hallucinations because they can fact-check their responses using external knowledge. This prevents them from making up information or providing inaccurate answers. 
-        """
-    )
-    write_centered_text(
-        """
-In essence, the integration of RAG with LLM enhances the LLM's information retrieval and synthesis prowess, resulting in a sophisticated AI system that not only comprehends and communicates in human language but also leverages a vast reservoir of knowledge to provide enriched and contextually relevant responses. It's akin to an erudite digital assistant with access to an expansive library, capable of delivering insightful and well-informed explanations.
-        """
-    )
+    is_verba_responding = test_api_connection(api_client)
 
-    display_centered_image(
-        BASE_ST_DIR / "assets/rag.png", caption="Retrieval Augmented Generation"
-    )
+    title = "🤖 Worldline MS Chatbot"
 
-    st.header("Data privacy", divider="grey")
-    write_centered_text(
-        """
-We want to assure you that your privacy and data security are of utmost importance to us. When using Chat GPT 4, hosted on our private Worldline instance on Azure, you can be confident that your interactions and data are kept secure and not exposed to third parties.
-        """
-    )
-    write_centered_text(
-        """
-Our private Worldline instance does not send chat prompts to the OpenAI API. This means that your conversations, questions, or interactions with the model are not shared with external servers or third parties. Everything remains within the controlled environment of our private instance.
-    """
-    )
-    write_centered_text(
-        """
-Additionally, we take measures to safeguard the privacy of any documents you may upload while using the application. Your uploaded documents are not shared between different instances of the application. Each user's data and documents are kept separate and are not accessible or viewable by other instances.
-This ensures that your information remains confidential.
-        """
-    )
+    if not is_verba_responding["is_ok"]:  # verba api not responding
+        st.title(f"{title} 🔴")
+        if (
+            "upload a key using /api/set_openai_key"
+            in is_verba_responding["error_details"]
+        ):
+            st.error(
+                f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+                icon="🚨",
+            )
 
-    st.header("Chat with LLM", divider="grey")
+        else:
+            st.error(
+                f"Connection to verba backend failed -> details : {is_verba_responding['error_details']}",
+                icon="🚨",
+            )
+        if st.button("🔄 Try again", type="primary"):
+            # when the button is clicked, the page will refresh by itself :)
+            log.debug("Refresh page")
+    else:  # verba api connected
+        st.title(f"{title} 🟢")
 
-    st.write("This is what the chatbot should look like:")
+        if st.button("Reset conversation", type="primary"):
+            # Delete message and document items in session state
+            if "messages" in st.session_state:
+                del st.session_state["messages"]
+            if "retrieved_documents" in st.session_state:
+                del st.session_state["retrieved_documents"]
 
-    display_centered_image(
-        BASE_ST_DIR / "assets/chatbot.png", caption="Chatbot snapshot"
-    )
+        if "messages" not in st.session_state.keys():
+            st.session_state.messages = [
+                {"role": "assistant", "content": "Hello 👋 How may I help you?"}
+            ]
 
-    write_centered_text(
-        'Once you ask a question, you can go to the "Retrieved documents" tab, where you will find every chunk of document retrieved and sent to the LLM to generate your answer.'
-    )
+        # Display chat messages
+        for message in st.session_state.messages:
+            with st.chat_message(
+                message["role"],
+                avatar=str(BASE_ST_DIR / "assets/WL.png")
+                if message["role"] == "assistant"
+                else None,
+            ):
+                st.markdown(message["content"])
 
-    write_centered_text(
-        "Beware, unlike OpenAI ChatGPT instance (that you may have already played with), once you asked a question, the chat bot have no prior knowledge of your previous prompt. We encourage you to make detailed prompts to get more accurate answers."
-    )
+        # User-provided prompt
+        if prompt := st.chat_input():
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-    st.header("Document administration", divider="grey")
-
-    write_centered_text(
-        'Currently only .txt files are supported. You can consult, upload or delete your uploaded documents from the "Document administration" section.'
-    )
+        # Generate a new response if last message is not from assistant
+        if st.session_state.messages[-1]["role"] != "assistant":
+            with st.chat_message(
+                "assistant", avatar=str(BASE_ST_DIR / "assets/WL.png")
+            ):
+                with st.spinner("Thinking..."):
+                    log.debug(f"User prompt : {prompt}")
+                    if prompt is not None:
+                        response, documents = generate_answer(
+                            prompt,
+                            api_client,
+                            max_nb_words=max_worlds_answers,
+                            return_documents=True,
+                        )
+                        st.markdown(response)
+                        append_documents_in_session_manager(prompt, documents)
+                    message = {"role": "assistant", "content": response}
+                    st.session_state.messages.append(message)
 
 
 if __name__ == "__main__":
     setup_logging()
 
     st.set_page_config(
-        page_title="WL RAG Home",
-        page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
-        layout="centered",
         initial_sidebar_state="expanded",
+        layout="centered",
+        page_title="Worldline MS Chatbot",
+        page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
     )
     show_pages(
         [
-            Page(BASE_ST_DIR / "app.py", "Home"),
-            Page(BASE_ST_DIR / "pages/chatbot.py", "RAG Chatbot"),
+            Page(BASE_ST_DIR / "app.py", "Worldline MS Chatbot"),
             Page(
-                BASE_ST_DIR / "pages/document_admin.py",
+                BASE_ST_DIR / "app_pages/source_documents.py",
+                "Source documents for answers",
+            ),
+            Page(
+                BASE_ST_DIR / "app_pages/document_admin.py",
                 "Document administration",
             ),
-            Page(BASE_ST_DIR / "pages/api_key_admin.py", "API key administration"),
+            Page(BASE_ST_DIR / "app_pages/api_key_admin.py", "API key administration"),
         ]
     )
-    display_centered_image(str(BASE_ST_DIR / "assets/WL-Horizontal.png"))
-    st.title("Worldline Retrieval-Augmented Generation")
+
+    st.sidebar.header("Config")
+    max_worlds_answers = st.sidebar.slider(
+        "Select maximum words in answer:",
+        min_value=40,
+        max_value=500,
+        value=100,
+        step=20,
+    )
     main()
