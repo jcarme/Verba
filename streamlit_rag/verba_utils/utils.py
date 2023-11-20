@@ -61,7 +61,7 @@ def generate_answer(
     else:
         question_appendix = ""
 
-    elaborated_question = str(prompt) + str(question_appendix)
+    elaborated_question = (str(prompt) + str(question_appendix)).encode("utf-8")
     log.info(f"Cleaned user query : {elaborated_question}")
 
     if test_api_connection(api_client):
