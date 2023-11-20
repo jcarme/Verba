@@ -1,4 +1,12 @@
 #!/bin/bash
+
+if [ $# -eq  0 ]; then
+	echo Usage: ms-chatbot.sh tenant
+	exit 1
+fi
+
+TENANT_NUMBER=$1
+
 export OPENAI_API_TYPE="azure"
 export OPENAI_API_BASE="https://wlgptpocrelay.azurewebsites.net"
 export OPENAI_API_VERSION="2023-05-15"
@@ -8,9 +16,8 @@ export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="200"
 export VERBA_MODEL="gpt-4"
 export VERBA_URL="http://localhost:8080"
 export BASE_VERBA_API_URL="http://localhost"
-export CHUNK_SIZE=100
 
-TENANT_NUMBER=$1
+
 # Check that the tenant number is not empty and a number
 if [ -z "$TENANT_NUMBER" ] || ! [[ "$TENANT_NUMBER" =~ ^[0-9]+$ ]]
 then
@@ -25,6 +32,7 @@ export WEAVIATE_TENANT='tenant_'$TENANT_NUMBER
 VERBA_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $1}' tenant_mapping.csv)
 URL_PREFIX=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $2}' tenant_mapping.csv)
 STREAMLIT_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $3}' tenant_mapping.csv)
+CHUNK_SIZE=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $4}' tenant_mapping.csv)
 
 # Check if VERBA_PORT or STREAMLIT_PORT is empty
 if [ -z "$VERBA_PORT" ] || [ -z "$STREAMLIT_PORT" ] || [ -z "$URL_PREFIX" ]

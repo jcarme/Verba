@@ -54,8 +54,8 @@ class ChunkerManager:
                 tokens = encoding.encode(chunk.text, disallowed_special=())
                 chunk.set_tokens(tokens)
                 if len(tokens) > 1000:
-                    raise Exception(
-                        "Chunk detected with more than 1000 tokens which exceeds the maximum size. Please reduce size of your chunk."
+                    msg.warn(
+                        f"Chunk detected with more than 1000 tokens ({len(tokens)}) which exceeds the maximum size. You might want to reduce size of your chunks."
                     )
 
         return True

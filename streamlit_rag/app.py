@@ -88,7 +88,7 @@ def main(verba_port, verba_base_url, chunk_size):
 
         if "messages" not in st.session_state.keys():
             st.session_state.messages = [
-                {"role": "assistant", "content": "Hello 👋 How may I help you?"}
+                {"role": "assistant", "content": "Greetings! I am your chatbot assistant, here to help. If the answers to your questions are in the documents you've uploaded, I can provide them. While you're free to ask in any language, for the best results, I recommend using the language of the uploaded documents."}
             ]
 
         # Display chat messages
