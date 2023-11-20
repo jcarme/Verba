@@ -13,7 +13,6 @@ export OPENAI_API_VERSION="2023-05-15"
 export AZURE_OPENAI_RESOURCE_NAME="wlgptpocrelay"
 export AZURE_OPENAI_EMBEDDING_MODEL="text-embedding-ada-002"
 export VERBA_WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="200"
-export VERBA_MODEL="gpt-4"
 export VERBA_URL="http://localhost:8080"
 export BASE_VERBA_API_URL="http://localhost"
 
@@ -33,6 +32,8 @@ VERBA_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $1}' tenan
 URL_PREFIX=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $2}' tenant_mapping.csv)
 STREAMLIT_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $3}' tenant_mapping.csv)
 CHUNK_SIZE=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $4}' tenant_mapping.csv)
+
+export VERBA_MODEL=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $5}' tenant_mapping.csv)
 
 # Check if VERBA_PORT or STREAMLIT_PORT is empty
 if [ -z "$VERBA_PORT" ] || [ -z "$STREAMLIT_PORT" ] || [ -z "$URL_PREFIX" ]
