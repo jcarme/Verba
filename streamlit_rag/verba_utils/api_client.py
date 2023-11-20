@@ -94,7 +94,9 @@ class APIClient:
         response = self.make_request(
             method="POST",
             endpoint=self.api_routes.query,
-            data=QueryPayload(query=data).model_dump_json(),
+            json={
+                "query":data.decode('utf-8')
+            }
         )
         if response.status_code == requests.status_codes.codes["ok"]:
             try:

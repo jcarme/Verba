@@ -40,9 +40,9 @@ class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
             .do()
         )
 
-        results = query_results["data"]["Get"][chunk_class_name]
-        msg.info(f"Retrieved {len(results)} chunks for {query_string}")
-        if "data" not in query_results:
+        results = query_results["data"]["Get"].get(chunk_class_name)
+
+        if results is None:
             raise Exception(query_results)
 
         context = self.combine_context(results=results)
@@ -66,7 +66,7 @@ class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
                 "messages":[
                     {
                         "role": "system",
-                        "content": f"You are a Retrieval Augmented Generation chatbot. Try to answer this user query {query_string} with only the provided context. If the provided documentation does not provide enough information, say so. If the answer requires code examples encapsulate them with ```programming-language-name ```. Don't do pseudo-code.",
+                        "content": f"You are a Retrieval Augmented Generation chatbot. Try to answer this user query {query_string} with only the provided context. If the provided documentation does not provide enough information, say so. Answer in the same language as the language used in the question.",
                     },
                     {"role": "user", "content": context},
                 ]
@@ -81,7 +81,7 @@ class AdvancedVerbaQueryEngine(SimpleVerbaQueryEngine):
             system_msg = str(completion["choices"][0]["message"]["content"])
             self.add_semantic_cache(query_string, results, system_msg)
         except Exception as e:
-            system_msg = f"Something went wrong! {str(e)}"
+            system_msg = f"Something went wrong! Please check your API Key. Exception : {str(e)}"
             msg.fail(system_msg)
 
         return (system_msg, results)
