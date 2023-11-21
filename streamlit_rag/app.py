@@ -9,6 +9,7 @@ from verba_utils.api_client import APIClient, test_api_connection
 from verba_utils.utils import (
     append_documents_in_session_manager,
     generate_answer,
+    get_chatbot_title,
     setup_logging,
 )
 
@@ -55,16 +56,14 @@ def main(verba_port, verba_base_url, chunk_size):
 
     is_verba_responding = test_api_connection(api_client)
 
-    title = "🤖 Worldline MS Chatbot"
-
     if not is_verba_responding["is_ok"]:  # verba api not responding
-        st.title(f"{title} 🔴")
+        st.title(f"🤖 {TITLE} 🔴")
         if (
             "upload a key using /api/set_openai_key"
             in is_verba_responding["error_details"]
         ):
             st.error(
-                f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+                f"Your openapi key is not set yet. Go set it in **Administration** page",
                 icon="🚨",
             )
 
@@ -77,7 +76,7 @@ def main(verba_port, verba_base_url, chunk_size):
             # when the button is clicked, the page will refresh by itself :)
             log.debug("Refresh page")
     else:  # verba api connected
-        st.title(f"{title} 🟢")
+        st.title(f"🤖 {TITLE} 🟢")
 
         if st.button("Reset conversation", type="primary"):
             # Delete message and document items in session state
@@ -88,7 +87,10 @@ def main(verba_port, verba_base_url, chunk_size):
 
         if "messages" not in st.session_state.keys():
             st.session_state.messages = [
-                {"role": "assistant", "content": "Greetings! I am your chatbot assistant, here to help. If the answers to your questions are in the documents you've uploaded, I can provide them. While you're free to ask in any language, for the best results, I recommend using the language of the uploaded documents."}
+                {
+                    "role": "assistant",
+                    "content": "Greetings! I am your chatbot assistant, here to help. If the answers to your questions are in the documents you've uploaded, I can provide them. While you're free to ask in any language, for the best results, I recommend using the language of the uploaded documents.",
+                }
             ]
 
         # Display chat messages
@@ -114,6 +116,7 @@ def main(verba_port, verba_base_url, chunk_size):
             ):
                 with st.spinner("Thinking..."):
                     log.debug(f"User prompt : {prompt}")
+                    response, documents = None, None
                     if prompt is not None:
                         response, documents = generate_answer(
                             prompt,
@@ -123,31 +126,38 @@ def main(verba_port, verba_base_url, chunk_size):
                         )
                         st.markdown(response)
                         append_documents_in_session_manager(prompt, documents)
-                    message = {"role": "assistant", "content": response}
-                    st.session_state.messages.append(message)
+                    if response:
+                        message = {"role": "assistant", "content": response}
+                        st.session_state.messages.append(message)
 
 
 if __name__ == "__main__":
     setup_logging()
 
+    try:
+        TITLE = get_chatbot_title()
+    except:  # Should never happen but I don't want the app to crash for a title
+        TITLE = "Worldline MS Chatbot"
+
     st.set_page_config(
         initial_sidebar_state="expanded",
         layout="centered",
-        page_title="Worldline MS Chatbot",
+        page_title=TITLE,
         page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
     )
+
     show_pages(
         [
-            Page(BASE_ST_DIR / "app.py", "Worldline MS Chatbot"),
+            Page(BASE_ST_DIR / "app.py", "Chatbot"),
             Page(
                 BASE_ST_DIR / "app_pages/source_documents.py",
-                "Source documents for answers",
+                "Source documents",
             ),
             Page(
                 BASE_ST_DIR / "app_pages/document_admin.py",
                 "Document administration",
             ),
-            Page(BASE_ST_DIR / "app_pages/api_key_admin.py", "API key administration"),
+            Page(BASE_ST_DIR / "app_pages/admin.py", "Administration"),
         ]
     )
 
