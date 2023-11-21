@@ -1,5 +1,7 @@
 import logging
+import os
 import pathlib
+import shelve
 from typing import Dict, List, Tuple
 
 import streamlit as st
@@ -102,21 +104,6 @@ def display_centered_image(
         )
 
 
-def remove_non_utf8_characters(input_str, encoding="latin-1"):
-    """
-    This is mainly for question number 19 that has '“' in the body.
-    Verba API can't handle this character and returns an error.
-    """
-    try:
-        # Try to encode the string to the specified encoding with error='strict'
-        cleaned_str = input_str.encode(encoding, "strict")
-        return cleaned_str
-    except UnicodeEncodeError:
-        # If encoding fails, use 'replace' to replace invalid characters with a placeholder
-        cleaned_str = input_str.encode(encoding, "replace").decode(encoding)
-        return cleaned_str
-
-
 def append_documents_in_session_manager(prompt: str, documents: List[Dict]):
     """Append retrieved document in streamlit session_manager
     :param str prompt:
@@ -175,3 +162,47 @@ def get_ordered_all_filenames(
     :return List[str]:
     """
     return sorted([e.doc_name for e in documents])
+
+
+def store_chatbot_title(title: str):
+    """This stores in shelve the custom title set by the user
+
+    :param str title:
+    """
+    weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
+    log.info(f"Storing new chatbot title (tenant {weaviate_tenant}) : {title}")
+
+    with shelve.open("key_cache") as db:
+        key = f"{weaviate_tenant}_title"
+        db[key] = title
+
+
+def get_chatbot_title(default_name: str = "Worldline MS Chatbot") -> str:
+    """This gets the stored title
+
+    :param str default_name:title to set if nothing is already stored defaults to "Worldline MS Chatbot"
+    :return str:
+    """
+    weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
+    with shelve.open("key_cache") as db:
+        key = f"{weaviate_tenant}_title"
+        if key in db:
+            return db[key]
+        else:
+            log.info(
+                f'No custom chatbot name found for tenant : {weaviate_tenant}, using the default title "{default_name}"'
+            )
+            return default_name
+
+
+def reset_chatbot_title():
+    """This removes the custom title stored"""
+    weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
+    log.info(f"Resetting chatbot title (tenant {weaviate_tenant})")
+
+    with shelve.open("key_cache") as db:
+        key = f"{weaviate_tenant}_title"
+        if key in db:
+            del db[key]
+        else:
+            log.info(f"{weaviate_tenant} is not in the shelve database.")

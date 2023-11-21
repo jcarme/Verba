@@ -668,7 +668,7 @@ async def test_openai_api_key():
                 chat_completion_arguments["deployment_id"] = os.environ["VERBA_MODEL"]
 
             _ = openai.ChatCompletion.create(**chat_completion_arguments)
-        except openai.error.AuthenticationError as e:
+        except (openai.error.AuthenticationError, openai.error.APIError) as e:
             msg.warn(f"Something went wrong when testing your API key : {e}")
             return JSONResponse(
                 content={
