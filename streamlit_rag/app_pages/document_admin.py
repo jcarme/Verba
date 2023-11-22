@@ -10,6 +10,15 @@ from verba_utils.utils import doc_id_from_filename, get_ordered_all_filenames
 
 log = logging.getLogger(__name__)
 
+try:
+    CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 300))
+except ValueError:
+    CHUNK_SIZE = 300
+    log.warn(
+        f"Can't cast os.environ.get('CHUNK_SIZE', 300) to int, value : {os.environ.get('CHUNK_SIZE', 300)}. Setting it to default {CHUNK_SIZE}"
+    )
+
+
 BASE_ST_DIR = pathlib.Path(os.path.dirname(__file__)).parent
 try:
     CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 300))
@@ -25,6 +34,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     page_title="MS RAG Documents",
     page_icon=str(BASE_ST_DIR / "assets/WL_icon.png"),
+)
+
+st.sidebar.header("Config")
+chuck_size = st.sidebar.slider(
+    "Select chunk size (let default if you don't know)",
+    min_value=50,
+    max_value=1000,
+    value=CHUNK_SIZE,
+    step=50,
 )
 
 
@@ -43,7 +61,7 @@ if not is_verba_responding["is_ok"]:  # verba api not responding
     st.title("📕 Document administration 🔴")
     if "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]:
         st.error(
-            f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+            f"Your openapi key is not set yet. Go set it in **Administration** page",
             icon="🚨",
         )
 
@@ -105,18 +123,15 @@ else:
 
     with insert_tab:
         st.header("Document uploader")
-        uploaded_files = st.file_uploader(
-            label="Upload your .txt or .md documents",
-            type=["txt", "md"],
-            accept_multiple_files=True,
-        )
-
-        if len(uploaded_files) > 0:
+        with st.form("document_form", clear_on_submit=True):
+            uploaded_files = st.file_uploader(
+                label="Upload your .txt documents",
+                type=["txt", "md"],
+                accept_multiple_files=True,
+            )
             document_type = st.text_input("Kind of documents", value="Documentation")
-            if st.button(
-                "🔨 Start embedding documents and upload to Weaviate Database",
-                type="primary",
-            ):
+            submitted = st.form_submit_button("Submit documents", type="primary")
+            if submitted:
                 already_uploaded_files = get_ordered_all_filenames(
                     api_client.get_all_documents().documents
                 )
@@ -125,7 +140,7 @@ else:
                     chunker="WordChunker",
                     embedder="ADAEmbedder",
                     document_type=document_type,
-                    chunkUnits=CHUNK_SIZE,
+                    chunkUnits=chuck_size,
                     chunkOverlap=50,
                 )
                 for file in uploaded_files:
