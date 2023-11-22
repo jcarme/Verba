@@ -33,7 +33,7 @@ if not is_verba_responding["is_ok"]:  # verba api not responding
     st.title(f"{title} 🔴")
     if "upload a key using /api/set_openai_key" in is_verba_responding["error_details"]:
         st.error(
-            f"Your openapi key is not set yet. Go set it in **API Key administration** page",
+            f"Your openapi key is not set yet. Go set it in **Administration** page",
             icon="🚨",
         )
 
@@ -51,7 +51,7 @@ else:
     st.title(f"{title} 🟢")
 
     if not "retrieved_documents" in st.session_state:
-        st.header(
+        st.write(
             "Here, you will find the source documents used to generate the answer for each of your prompts."
         )
     else:
