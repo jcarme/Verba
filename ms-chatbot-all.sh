@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NB_TENANTS=8
+NB_TENANTS=12
 
 start_all_chatbots() {
 

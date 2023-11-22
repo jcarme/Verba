@@ -34,6 +34,7 @@ STREAMLIT_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $3}' t
 CHUNK_SIZE=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $4}' tenant_mapping.csv)
 
 export VERBA_MODEL=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $5}' tenant_mapping.csv)
+export VERBA_MODEL_CONTEXT_SIZE=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $6}' tenant_mapping.csv)
 
 # Check if VERBA_PORT or STREAMLIT_PORT is empty
 if [ -z "$VERBA_PORT" ] || [ -z "$STREAMLIT_PORT" ] || [ -z "$URL_PREFIX" ]
@@ -51,12 +52,12 @@ set -m
 
 # Start Verba, store standard and error logs in verba.$1.log, do not erase the previous logs
 echo "Starting Verba on port $VERBA_PORT..."
-(verba start --port $VERBA_PORT >> verba.$1.log 2>&1) &
+(verba start --port $VERBA_PORT >> logs/verba.$1.log 2>&1) &
 echo "Verba started"
 
 # Start Streamlit, store standard and error logs in streamlit.$1.log, do not erase the previous logs
 echo "Starting Streamlit on port $STREAMLIT_PORT (url will be http://localhost:$STREAMLIT_PORT/$URL_PREFIX)..."
-(python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL --chunk_size $CHUNK_SIZE  >> streamlit.$1.log 2>&1) &
+(python3 -m streamlit run streamlit_rag/app.py --server.port $STREAMLIT_PORT --server.baseUrlPath "/${URL_PREFIX}/" --server.headless true --theme.base dark --theme.primaryColor "4db8a7" -- --verba_port $VERBA_PORT --verba_base_url $BASE_VERBA_API_URL --chunk_size $CHUNK_SIZE  >> logs/streamlit.$1.log 2>&1) &
 echo "Streamlit started"
 
 wait

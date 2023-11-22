@@ -1,4 +1,5 @@
 import tiktoken
+import os
 
 from goldenverba.ingestion.chunking.wordchunker import WordChunker
 from goldenverba.ingestion.chunking.sentencechunker import SentenceChunker
@@ -48,14 +49,16 @@ class ChunkerManager:
         """
         encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
 
+        context_size = int(os.getenv("VERBA_MODEL_CONTEXT_SIZE",8000))
+        max_token_number=(context_size-100)/8
+
         for document in documents:
             chunks = document.chunks
             for chunk in chunks:
                 tokens = encoding.encode(chunk.text, disallowed_special=())
                 chunk.set_tokens(tokens)
-                if len(tokens) > 1000:
-                    msg.warn(
-                        f"Chunk detected with more than 1000 tokens ({len(tokens)}) which exceeds the maximum size. You might want to reduce size of your chunks."
-                    )
+                if len(tokens) > max_token_number:
+                    raise Exception(
+                        f"Chunk detected with {len(token)} tokens, whereas the maximum allowed with your model is {max_token_number}. Please reduce size of your chunk.")
 
         return True
