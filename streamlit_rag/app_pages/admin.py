@@ -129,7 +129,7 @@ else:
             st.warning("Please enter a valid API key.")
     st.subheader("Change Chatbot title", divider="blue")
     with st.form("chatbot_title", clear_on_submit=True):
-        title = st.text_input("New chatbot title page:")
+        title = st.text_input("New chatbot welcome page title:")
         col1, _, col3 = st.columns([0.20, 0.7, 0.20])
         with col1:
             submit = st.form_submit_button("Submit new title", type="primary")

@@ -172,9 +172,8 @@ def store_chatbot_title(title: str):
     weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
     log.info(f"Storing new chatbot title (tenant {weaviate_tenant}) : {title}")
 
-    with shelve.open("key_cache") as db:
-        key = f"{weaviate_tenant}_title"
-        db[key] = title
+    with shelve.open(f"shelve/key_cache_{weaviate_tenant}") as db:
+        db["title"] = title
 
 
 def get_chatbot_title(default_name: str = "Worldline MS Chatbot") -> str:
@@ -184,8 +183,8 @@ def get_chatbot_title(default_name: str = "Worldline MS Chatbot") -> str:
     :return str:
     """
     weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
-    with shelve.open("key_cache") as db:
-        key = f"{weaviate_tenant}_title"
+    with shelve.open(f"shelve/key_cache_{weaviate_tenant}") as db:
+        key = f"title"
         if key in db:
             return db[key]
         else:

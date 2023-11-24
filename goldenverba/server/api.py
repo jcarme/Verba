@@ -40,8 +40,8 @@ def check_manager_initialized():
 
 def store_api_key(key):
     weaviate_tenant = os.getenv('WEAVIATE_TENANT',default='default_tenant')
-    with shelve.open("key_cache") as db:
-        db[weaviate_tenant] = key
+    with shelve.open(f"shelve/key_cache_{weaviate_tenant}") as db:
+        db["api_key"] = key
 
 def remove_api_key():
     global manager
@@ -50,9 +50,9 @@ def remove_api_key():
     os.environ.pop("OPENAI_API_KEY", None)
 
     weaviate_tenant = os.getenv("WEAVIATE_TENANT", default="default_tenant")
-    with shelve.open("key_cache") as db:
-        if weaviate_tenant in db:
-            del db[weaviate_tenant]
+    with shelve.open(f"shelve/key_cache_{weaviate_tenant}") as db:
+        if "api_key" in db:
+            del db["api_key"]
         else:
             msg.info(f"{weaviate_tenant} is not in the shelve database.")
 
@@ -61,8 +61,8 @@ def check_api_key():
     if "OPENAI_API_KEY" in os.environ:
         return True
     weaviate_tenant = os.getenv('WEAVIATE_TENANT',default='default_tenant')
-    with shelve.open("key_cache") as db:
-        key = db.get(weaviate_tenant,None)
+    with shelve.open(f"shelve/key_cache_{weaviate_tenant}") as db:
+        key = db.get("api_key",None)
     if key:
         os.environ["OPENAI_API_KEY"] = key
         return True
@@ -160,7 +160,7 @@ def create_embedder_payload(key: str, embedder: Embedder) -> dict:
 
 
 # FastAPI App
-app = FastAPI(root_path=os.environ.get("URL_PREFIX", ""))
+app = FastAPI(root_path="/"+os.environ.get("URL_PREFIX", ""))
 
 if os.environ.get("URL_PREFIX", None):
     msg.info(f"FastAPI started with root_path = {os.environ.get('URL_PREFIX')}")
