@@ -160,7 +160,10 @@ def create_embedder_payload(key: str, embedder: Embedder) -> dict:
 
 
 # FastAPI App
-app = FastAPI()
+app = FastAPI(root_path=os.environ.get("URL_PREFIX", ""))
+
+if os.environ.get("URL_PREFIX", None):
+    msg.info(f"FastAPI started with root_path = {os.environ.get('URL_PREFIX')}")
 
 origins = [
     "http://localhost:3000",
