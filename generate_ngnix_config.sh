@@ -45,36 +45,51 @@ EOF
 fi
 
 # Read the CSV file line by line
-header_skipped=false
-while IFS=, read -r verba_port url_prefix streamlit_port; do
-    if [ "$header_skipped" = false ]; then
-        header_skipped=true
-        continue  # Skip the first line (header)
-    fi
+{
+    read
+    while IFS=, read -ra cols; do
+        verba_port=${cols[0]}
+        url_prefix=${cols[1]}
+        streamlit_port=${cols[2]}
 
-    # Generate the corresponding location sections
-    cat <<EOF >> "$output_file"
-    location /$url_prefix/ {
-        proxy_pass http://localhost:$streamlit_port/$url_prefix/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header X-Forwarded-Prefix /$url_prefix;
-    }
-    location /$url_prefix/_stcore { # add auth headers for websocket
-        proxy_pass http://localhost:$streamlit_port/$url_prefix/_stcore;
-        proxy_http_version 1.1;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header Host \$host;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Sec-WebSocket-Extensions \$http_sec_websocket_extensions;
-        proxy_read_timeout 86400;
-    }
+        # Skip if any of the fields is empty
+        if [ -z "$verba_port" ] || [ -z "$url_prefix" ] || [ -z "$streamlit_port" ]; then
+            continue
+        fi
+
+        # Generate the corresponding location sections
+        cat <<EOF >> "$output_file"
+        location /$url_prefix/ {
+            proxy_pass http://localhost:$streamlit_port/$url_prefix/;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_set_header X-Forwarded-Prefix /$url_prefix;
+        }
+        location /$url_prefix/_stcore { # add auth headers for websocket
+            proxy_pass http://localhost:$streamlit_port/$url_prefix/_stcore;
+            proxy_http_version 1.1;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header Host \$host;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Sec-WebSocket-Extensions \$http_sec_websocket_extensions;
+            proxy_read_timeout 86400;
+        }
+        location /$url_prefix/docs {
+            proxy_pass http://localhost:$verba_port/docs;
+        }
+        location /$url_prefix/openapi.json {
+            proxy_pass http://localhost:$verba_port/openapi.json;
+        }
+        location /$url_prefix/api {
+            proxy_pass http://localhost:$verba_port/api;
+        }
 
 EOF
-done < "$csv_file"
+    done
+} < <(tail -n +1 "$csv_file" && echo)
 
 # Finish the Nginx configuration file
 if [ "$header_written" = true ]; then

@@ -29,7 +29,7 @@ export WEAVIATE_TENANT='tenant_'$TENANT_NUMBER
 # Read values from the "tenant_mapping.csv" file
 # We do +2 because TENANT number starts at 0, our csv file starts at 1 and we have the header to ignore
 VERBA_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $1}' tenant_mapping.csv)
-URL_PREFIX=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $2}' tenant_mapping.csv)
+export URL_PREFIX=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $2}' tenant_mapping.csv)
 STREAMLIT_PORT=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $3}' tenant_mapping.csv)
 CHUNK_SIZE=$(awk -F ',' -v line=$((TENANT_NUMBER+2)) 'NR==line {print $4}' tenant_mapping.csv)
 
