@@ -2,17 +2,43 @@ import re
 import os
 from dotenv import load_dotenv
 from wasabi import msg  # type: ignore[import]
-from weaviate import Client
+from weaviate import Client, Tenant
 
 load_dotenv()
 
 VECTORIZERS = {"text2vec-openai", "text2vec-cohere"}  # Needs to match with Weaviate modules
 EMBEDDINGS = {"MiniLM"}  # Custom Vectors
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 def strip_non_letters(s: str):
     return re.sub(r"[^a-zA-Z0-9]", "_", s)
 
+def create_if_not_exists(
+    client: Client,
+    class_name: str, 
+    class_schema: str, 
+    tenant_name: str, 
+    reset: bool =False
+) -> None:
+    """Ensures that a schema exists for the specified class_name within the client. Creates the schema if it does not exist, 
+    optionally resets it for the tenant, and adds the class to the tenant if it's not already present. 
+    @param client: Client - The client instance to interact with the schema.
+    @param class_name: str - The name of the class to check or create in the schema.
+    @param class_schema: str - The schema definition to create if the class does not exist.
+    @param tenant_name: str - The name of the tenant to add the class to or remove from.
+    @param reset: bool - A flag to determine whether the class tenants should be reset (default is False).
+    @returns None
+    """
+    if not client.schema.exists(class_name):
+        client.schema.create(class_schema)
+        msg.good(f"{class_name} schema created")
+    if reset:
+        client.schema.remove_class_tenants(class_name=class_name,tenants=[tenant_name])
+        msg.good(f"tenant {tenant_name} class {class_name} removed")
+    if not tenant_name in [tenant.name for tenant in client.schema.get_class_tenants(class_name)]:
+        client.schema.add_class_tenants(class_name=class_name,tenants=[Tenant(name=tenant_name)])
+        msg.good(f"{class_name} schema added to tenant {tenant_name}")
 
 def verify_vectorizer(
     schema: dict, vectorizer: str, skip_properties: list[str] = None
@@ -76,7 +102,7 @@ def add_suffix(schema: dict, vectorizer: str) -> tuple[dict, str]:
     )
     return modified_schema, modified_schema["classes"][0]["class"]
 
-
+# REMARK : we don"t need this function anymore
 def reset_schemas(
     client: Client = None,
     vectorizer: str = None,
@@ -89,24 +115,25 @@ def reset_schemas(
     client.schema.delete_class(chunk_name)
     client.schema.delete_class(cache_name)
 
-
 def init_schemas(
     client: Client = None,
     vectorizer: str = None,
     force: bool = False,
     check: bool = False,
+    reset: bool = False
 ) -> bool:
     """Initializes a weaviate client and initializes all required schemas
     @parameter client : Client - Weaviate Client
     @parameter vectorizer : str - Name of the vectorizer
     @parameter force : bool - Delete existing schema without user input
     @parameter check : bool - Only create if not exist
+    @parameter reset : bool - Reset tenant
     @returns tuple[dict, dict] - Tuple of modified schemas.
     """
     try:
-        init_documents(client, vectorizer, force, check)
-        init_cache(client, vectorizer, force, check)
-        init_suggestion(client, vectorizer, force, check)
+        init_documents(client, vectorizer, force, check, reset=reset)
+        init_cache(client, vectorizer, force, check, reset=reset)
+        init_suggestion(client, vectorizer, force, check, reset=reset)
         return True
     except Exception as e:
         msg.fail(f"Schema initialization failed {str(e)}")
@@ -114,19 +141,21 @@ def init_schemas(
 
 
 def init_documents(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> tuple[dict, dict]:
     """Initializes the Document and Chunk class
     @parameter client : Client - Weaviate client
     @parameter vectorizer : str - Name of the vectorizer
     @parameter force : bool - Delete existing schema without user input
     @parameter check : bool - Only create if not exist
+    @parameter reset : bool - Reset tenant
     @returns tuple[dict, dict] - Tuple of modified schemas.
     """
     SCHEMA_CHUNK = {
         "classes": [
             {
                 "class": "Chunk",
+                'multiTenancyConfig': {'enabled': True},                
                 "description": "Chunks of Documentations",
                 "properties": [
                     {
@@ -166,6 +195,7 @@ def init_documents(
         "classes": [
             {
                 "class": "Document",
+                'multiTenancyConfig': {'enabled': True},
                 "description": "Documentation",
                 "properties": [
                     {
@@ -214,47 +244,28 @@ def init_documents(
     document_schema, document_name = add_suffix(SCHEMA_DOCUMENT, vectorizer)
     chunk_schema, chunk_name = add_suffix(chunk_schema, vectorizer)
 
-    if client.schema.exists(document_name):
-        if check:
-            return document_schema, chunk_schema
-        if not force:
-            user_input = input(
-                f"{document_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(document_name)
-            client.schema.delete_class(chunk_name)
-            client.schema.create(document_schema)
-            client.schema.create(chunk_schema)
-            msg.good(f"{document_name} and {chunk_name} schemas created")
-        else:
-            msg.warn(
-                f"Skipped deleting {document_name} and {chunk_name} schema, nothing changed"
-            )
-    else:
-        client.schema.create(document_schema)
-        client.schema.create(chunk_schema)
-        msg.good(f"{document_name} and {chunk_name} schemas created")
+    create_if_not_exists(client, document_name, document_schema, TENANT, reset=reset)
+    create_if_not_exists(client, chunk_name, chunk_schema, TENANT, reset=reset)    
 
     return document_schema, chunk_schema
 
 
 def init_cache(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> dict:
     """Initializes the Cache
     @parameter client : Client - Weaviate client
     @parameter vectorizer : str - Name of the vectorizer
     @parameter force : bool - Delete existing schema without user input
     @parameter check : bool - Only create if not exist
+    @parameter reset : bool - Reset tenant
     @returns dict - Modified schema.
     """
     SCHEMA_CACHE = {
         "classes": [
             {
                 "class": "Cache",
+                "multiTenancyConfig": {"enabled": True},                
                 "description": "Cache of Documentations and their queries",
                 "properties": [
                     {
@@ -283,42 +294,27 @@ def init_cache(
     # Add Suffix
     cache_schema, cache_name = add_suffix(cache_schema, vectorizer)
 
-    if client.schema.exists(cache_name):
-        if check:
-            return cache_schema
-        if not force:
-            user_input = input(
-                f"{cache_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(cache_name)
-            client.schema.create(cache_schema)
-            msg.good(f"{cache_name} schema created")
-        else:
-            msg.warn(f"Skipped deleting {cache_name} schema, nothing changed")
-    else:
-        client.schema.create(cache_schema)
-        msg.good(f"{cache_name} schema created")
+    create_if_not_exists(client, cache_name, cache_schema, TENANT, reset=reset)
 
     return cache_schema
 
 
 def init_suggestion(
-    client: Client, vectorizer: str = None, force: bool = False, check: bool = False
+    client: Client, vectorizer: str = None, force: bool = False, check: bool = False, reset: bool = False
 ) -> dict:
     """Initializes the Suggestion schema
     @parameter client : Client - Weaviate client
     @parameter vectorizer : str - Name of the vectorizer
     @parameter force : bool - Delete existing schema without user input
     @parameter check : bool - Only create if not exist
+    @parameter reset : bool - Reset tenant
     @returns dict - Modified schema.
     """
     SCHEMA_SUGGESTION = {
         "classes": [
             {
                 "class": "Suggestion",
+                "multiTenancyConfig": {"enabled": True},                
                 "description": "List of possible prompts",
                 "properties": [
                     {
@@ -334,23 +330,6 @@ def init_suggestion(
     suggestion_schema = SCHEMA_SUGGESTION
     suggestion_name = "Suggestion"
 
-    if client.schema.exists(suggestion_name):
-        if check:
-            return suggestion_schema
-        if not force:
-            user_input = input(
-                f"{suggestion_name} class already exists, do you want to delete it? (y/n): "
-            )
-        else:
-            user_input = "y"
-        if user_input.strip().lower() == "y":
-            client.schema.delete_class(suggestion_name)
-            client.schema.create(suggestion_schema)
-            msg.good(f"{suggestion_name} schema created")
-        else:
-            msg.warn(f"Skipped deleting {suggestion_name} schema, nothing changed")
-    else:
-        client.schema.create(suggestion_schema)
-        msg.good(f"{suggestion_name} schema created")
+    create_if_not_exists(client, suggestion_name, suggestion_schema, TENANT, reset=reset)
 
     return suggestion_schema

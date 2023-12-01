@@ -1,3 +1,5 @@
+import os
+
 from weaviate import Client
 from weaviate.gql.get import HybridFusion
 
@@ -5,6 +7,7 @@ from goldenverba.components.chunking.chunk import Chunk
 from goldenverba.components.embedding.interface import Embedder
 from goldenverba.components.retriever.interface import Retriever
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class SimpleRetriever(Retriever):
     """
@@ -44,6 +47,7 @@ class SimpleRetriever(Retriever):
                         "doc_type",
                     ],
                 )
+                .with_tenant(TENANT)
                 .with_additional(properties=["score"])
                 .with_autocut(2)
             )
