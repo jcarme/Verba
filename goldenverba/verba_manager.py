@@ -25,6 +25,7 @@ from goldenverba.components.retriever.manager import RetrieverManager
 
 load_dotenv()
 
+TENANT = os.getenv('WEAVIATE_TENANT',default='default_tenant')
 
 class VerbaManager:
     """Manages all Verba Components."""
@@ -417,6 +418,7 @@ class VerbaManager:
         for _class in schema_info["classes"]:
             results = (
                 self.client.query.get(_class["class"])
+                .with_tenant(TENANT)
                 .with_limit(10000)
                 .with_additional(properties=["id"])
                 .do()
@@ -436,6 +438,7 @@ class VerbaManager:
                 class_name="Suggestion",
                 properties=["suggestion"],
             )
+            .with_tenant(TENANT)
             .with_bm25(query=query)
             .with_limit(3)
             .do()
@@ -466,6 +469,7 @@ class VerbaManager:
                 class_name="Suggestion",
                 properties=["suggestion"],
             )
+            .with_tenant(TENANT)
             .with_where(
                 {
                     "path": ["suggestion"],
@@ -489,7 +493,7 @@ class VerbaManager:
             properties = {
                 "suggestion": query,
             }
-            self.client.batch.add_data_object(properties, "Suggestion")
+            self.client.batch.add_data_object(properties, "Suggestion", tenant=TENANT)
 
         msg.info("Added query to suggestions")
 
@@ -516,6 +520,7 @@ class VerbaManager:
                     class_name=class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_additional(properties=["id"])
                 .with_limit(10000)
                 .do()
@@ -526,6 +531,7 @@ class VerbaManager:
                     class_name=class_name,
                     properties=["doc_name", "doc_type", "doc_link"],
                 )
+                .with_tenant(TENANT)
                 .with_additional(properties=["id"])
                 .with_where(
                     {
@@ -553,6 +559,7 @@ class VerbaManager:
         document = self.client.data_object.get_by_id(
             doc_id,
             class_name=class_name,
+            tenant=TENANT
         )
         return document
 
@@ -621,34 +628,28 @@ class VerbaManager:
             )
 
     def reset(self):
-        self.client.schema.delete_class("Suggestion")
+        self.client.schema.remove_class_tenants(class_name="Suggestion", tenants=[TENANT])
         # Check if all schemas exist for all possible vectorizers
         for vectorizer in schema_manager.VECTORIZERS:
-            schema_manager.reset_schemas(self.client, vectorizer)
+            schema_manager.init_schemas(self.client, vectorizer, False, True,reset=True)
 
         for embedding in schema_manager.EMBEDDINGS:
-            schema_manager.reset_schemas(self.client, embedding)
-
-        for vectorizer in schema_manager.VECTORIZERS:
-            schema_manager.init_schemas(self.client, vectorizer, False, True)
-
-        for embedding in schema_manager.EMBEDDINGS:
-            schema_manager.init_schemas(self.client, embedding, False, True)
-
+            schema_manager.init_schemas(self.client, embedding, False, True, reset=True)
+            
     def reset_cache(self):
         # Check if all schemas exist for all possible vectorizers
         for vectorizer in schema_manager.VECTORIZERS:
             class_name = "Cache_" + schema_manager.strip_non_letters(vectorizer)
-            self.client.schema.delete_class(class_name)
+            self.client.schema.remove_class_tenants(class_name=class_name, tenants=[TENANT])
             schema_manager.init_schemas(self.client, vectorizer, False, True)
 
         for embedding in schema_manager.EMBEDDINGS:
             class_name = "Cache_" + schema_manager.strip_non_letters(embedding)
-            self.client.schema.delete_class(class_name)
+            self.client.schema.remove_class_tenants(class_name=class_name, tenants=[TENANT])
             schema_manager.init_schemas(self.client, embedding, False, True)
 
     def reset_suggestion(self):
-        self.client.schema.delete_class("Suggestion")
+        self.client.schema.remove_class_tenants(class_name="Suggestion", tenants=[TENANT])
         schema_manager.init_suggestion(self.client, "", False, True)
 
     def check_if_document_exits(self, document: Document) -> bool:
@@ -667,6 +668,7 @@ class VerbaManager:
                     "doc_name",
                 ],
             )
+            .with_tenant(TENANT)
             .with_where(
                 {
                     "path": ["doc_name"],

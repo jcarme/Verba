@@ -306,6 +306,19 @@ OPENAI_MODEL="gpt-4"
 WAIT_TIME_BETWEEN_INGESTION_QUERIES_MS="100"
 ```
 
+## Multi tenancy
+
+You can use of multiple instances of Verba with a single instance of Weaviate, which natively supports multi-tenancy.
+The documents of every verba instance will not be shared.
+
+To set up a new tenant at startup, export this environment variable :
+
+```
+export WEAVIATE_TENANT="TENANT_NAME"
+```
+
+If no tenant is set, the default one will be `default_tenant`
+
 ## Cohere
 
 Verba supports Cohere Models, to use them, you need to specify the `COHERE_API_KEY` environment variable. You can get it from [Cohere](https://dashboard.cohere.com/)
