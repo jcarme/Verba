@@ -234,6 +234,42 @@ Visit localhost:8000
 
 6. **Create .env file and add environment variables**
 
+# Behind a proxy
+If you deploy verba behind a NGNIX proxy, you may have issues to access the swagger page.
+More info [here](https://fastapi.tiangolo.com/advanced/behind-a-proxy/).
+
+To solve that, you can export an environment variable to set a `URL_PREFIX` that will be used by FastAPI as a `root_path`
+
+```
+export URL_PREFIX="XXXXXX"
+```
+
+## Worldline specific ngnix config generation for multi tenants
+
+We have implemented multi-tenancy so that we can run several chatbot on a single weaviate instance. Each chatbot is accessed through a specific url like: http://ip/tenant_key
+
+Streamlit app behind a ngnix proxy is not straightforward. To make it simple, there is a bash script that generates the nginx config for multi tenants `generate_ngnix_config.sh`
+
+You must create the file `tenant_mapping.csv with these columns:
+- **verba_port**: port exposed by verba, shoudl be distinct for each tenant.
+- **url_prefix**: tenant key, should be distinct for each tenant, will appear in the URL
+- **streamlit_port**: streamlit port, should be distinct for each tenant.
+- **chunk_size**: default size of the chunks
+- **model**: gpt model used for querying, typically gpt-4
+- **context_size**: model context size. Should match with the actual context size of the model (for gpt-4, it can be 8000 or 32000).
+
+There is a template `tenant_mapping.csv.template` at the root of the project. You can copy it to `tenant_mapping.csv` and modify it.
+
+Then run this to generate the ngnix config :
+
+```
+./generate_ngnix_config.sh --csv_file=tenant_mapping.csv --output_file="config"
+```
+
+You will have a new file `config`. Copy past the content in `/etc/nginx/sites-enabled/reverse-proxy`.
+
+Then run the command `sudo service nginx reload\` to apply the changes.
+
 # 🔑 API Keys
 
 Before diving into Verba's capabilities, you'll need to configure access to various components depending on your chosen technologies, such as OpenAI, Cohere, and HuggingFace. Start by obtaining the necessary API keys and setting them up through a `.env` file based on our provided [example](./goldenverba/.env.example) , or by declaring them as environment variables on your system. If you're building from source or using Docker, make sure your `.env` file is within the goldenverba directory.
