@@ -246,10 +246,17 @@ export URL_PREFIX="XXXXXX"
 
 ## Worldline specific ngnix config generation for multi tenants
 
+We have implemented multi-tenancy so that we can run several chatbot on a single weaviate instance. Each chatbot is accessed through a specific url like: http://ip/tenant_key
+
 Streamlit app behind a ngnix proxy is not straightforward. To make it simple, there is a bash script that generates the nginx config for multi tenants `generate_ngnix_config.sh`
 
-You must create a csv file with 4 columns verba_port,url_prefix,streamlit_port,context_size  
-(there is a template `tenant_mapping.csv.template`)
+You must create the file `tenant_mapping.csv with these columns:
+- **verba_port**: port exposed by verba, shoudl be distinct for each tenant.
+- **url_prefix**: tenant key, should be distinct for each tenant, will appear in the URL
+- **streamlit_port**: streamlit port, should be distinct for each tenant.
+- **context_size**: default size of the context used by the querying model
+
+There is a template `tenant_mapping.csv.template` at the root of the project. You can copy it to `tenant_mapping.csv` and modify it.
 
 Then run this to generate the ngnix config :
 
