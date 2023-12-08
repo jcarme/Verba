@@ -351,9 +351,14 @@ async def get_components():
 
 @app.post("/api/get_component")
 async def get_component(payload: GetComponentPayload):
-    msg.info(f"Retrieving {payload.component} components")
-
+    
     data = {"components": []}
+    
+    if not manager:
+        msg.warn("Verba is not initialized yet, please upload your OpenAI key")
+        return JSONResponse(content=data)
+
+    msg.info(f"Retrieving {payload.component} components")
 
     if payload.component == "embedders":
         data["selected_component"] = create_embedder_payload(
@@ -419,14 +424,23 @@ async def set_component(payload: SetComponentPayload):
 @app.get("/api/get_status")
 async def get_status():
     msg.info("Retrieving status")
+    if manager:
+        data = {
+            "type": manager.weaviate_type,
+            "libraries": manager.installed_libraries,
+            "variables": manager.environment_variables,
+            "schemas": manager.get_schemas(),
+        }
 
-    data = {
-        "type": manager.weaviate_type,
-        "libraries": manager.installed_libraries,
-        "variables": manager.environment_variables,
-        "schemas": manager.get_schemas(),
-    }
-
+        
+    else:
+        msg.warn("Verba is not initialized yet, please upload your OpenAI key")
+        data = {
+            "type": "",
+            "libraries": {},
+            "variables": {},
+            "schemas": {},
+        }
     return JSONResponse(content=data)
 
 
@@ -691,6 +705,15 @@ async def get_document(payload: GetDocumentPayload):
 @app.post("/api/get_all_documents")
 async def get_all_documents(payload: SearchQueryPayload):
     msg.info("Get all documents request received")
+    if not manager:
+        msg.warn("Verba is not initialized yet, please upload your OpenAI key")
+        return JSONResponse(
+            content= {
+                    "documents": [],
+                    "doc_types": [],
+                    "current_embedder": None,
+            }
+        )
 
     try:
         documents = manager.retrieve_all_documents(payload.doc_type)
@@ -707,11 +730,12 @@ async def get_all_documents(payload: SearchQueryPayload):
         )
     except Exception as e:
         msg.fail(f"All Document retrieval failed: {str(e)}")
+        
         return JSONResponse(
-            content={
-                "documents": [],
-                "doc_types": [],
-                "current_embedder": manager.embedder_manager.selected_embedder.name,
+            content = {
+                    "documents": [],
+                    "doc_types": [],
+                    "current_embedder": manager.embedder_manager.selected_embedder.name,
             }
         )
 
