@@ -234,6 +234,33 @@ Visit localhost:8000
 
 6. **Create .env file and add environment variables**
 
+# Behind a proxy
+If you deploy verba behind a NGNIX proxy, you may have issues to access the swagger page.
+More info [here](https://fastapi.tiangolo.com/advanced/behind-a-proxy/).
+
+To solve that, you can export an environment variable to set a `URL_PREFIX` that will be used by FastAPI as a `root_path`
+
+```
+export URL_PREFIX="XXXXXX"
+```
+
+## Worldline specific ngnix config generation for multi tenants
+
+Streamlit app behind a ngnix proxy is not straightforward. To make it simple, there is a bash script that generates the nginx config for multi tenants `generate_ngnix_config.sh`
+
+You must create a csv file with 4 columns verba_port,url_prefix,streamlit_port,context_size  
+(there is a template `tenant_mapping.csv.template`)
+
+Then run this to generate the ngnix config :
+
+```
+./generate_ngnix_config.sh --csv_file=tenant_mapping.csv --output_file="config"
+```
+
+You will have a new file `config`. Copy past the content in `/etc/nginx/sites-enabled/reverse-proxy`.
+
+Then run the command `sudo service nginx reload\` to apply the changes.
+
 # 🔑 API Keys
 
 Before diving into Verba's capabilities, you'll need to configure access to various components depending on your chosen technologies, such as OpenAI, Cohere, and HuggingFace. Start by obtaining the necessary API keys and setting them up through a `.env` file based on our provided [example](./goldenverba/.env.example) , or by declaring them as environment variables on your system. If you're building from source or using Docker, make sure your `.env` file is within the goldenverba directory.
