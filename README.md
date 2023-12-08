@@ -254,7 +254,9 @@ You must create the file `tenant_mapping.csv with these columns:
 - **verba_port**: port exposed by verba, shoudl be distinct for each tenant.
 - **url_prefix**: tenant key, should be distinct for each tenant, will appear in the URL
 - **streamlit_port**: streamlit port, should be distinct for each tenant.
-- **context_size**: default size of the context used by the querying model
+- **chunk_size**: default size of the chunks
+- **model**: gpt model used for querying, typically gpt-4
+- **context_size**: model context size. Should match with the actual context size of the model (for gpt-4, it can be 8000 or 32000).
 
 There is a template `tenant_mapping.csv.template` at the root of the project. You can copy it to `tenant_mapping.csv` and modify it.
 
