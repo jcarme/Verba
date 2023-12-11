@@ -773,8 +773,17 @@ async def delete_document(payload: GetDocumentPayload):
     return JSONResponse(content={})
 
 
-@app.post("/api/set_openai_key")
+@app.post(
+    "/api/set_openai_key",
+    summary="Update and store the OpenAI API key",
+    response_description="HTTP status and status message"
+)
 async def set_openai_key(payload: APIKeyPayload):
+    """
+    This will save (and update if exists) your OpenAI API key.
+    
+    **Note**: your key will not be tested when uploaded. To test your key, use **/test_openai_api_key**
+    """
     try:
         os.environ["OPENAI_API_KEY"] = payload.key      
         store_api_key(payload.key)
@@ -796,7 +805,11 @@ async def set_openai_key(payload: APIKeyPayload):
         )
 
 
-@app.post("/api/unset_openai_key")
+@app.post(
+    "/api/unset_openai_key",
+    summary="Remove the updated OpenAI API key",
+    response_description="HTTP status and status message"
+)
 async def unset_openai_key():
     global manager
     try:
@@ -818,8 +831,16 @@ async def unset_openai_key():
             }
         )
         
-@app.get("/api/get_openai_key_preview")
+@app.get(
+    "/api/get_openai_key_preview",
+    summary="Get an overview of the uploaded API key",
+    response_description="HTTP status and API key preview"
+)
 async def get_openai_key_preview():
+    """
+    Get first and last 3 characters of the uploaded OpenAI API key.
+    eg: if your key is "123-456-789" it returns "123*****789"
+    """
     if not "OPENAI_API_KEY" in os.environ:
         return JSONResponse(
             content={
@@ -836,8 +857,17 @@ async def get_openai_key_preview():
         }
     )
         
-@app.get("/api/test_openai_api_key")
+@app.get(
+    "/api/test_openai_api_key",
+    summary="Test if the uploaded OpenAI API key is Working.",
+    response_description="Test connection HTTP status and status message"
+)
 async def test_openai_api_key():
+    """
+    Test if the uploaded OpenAI API key is Working. 
+    A small prompt will be sent to the model to make sure we have a correct response.
+    Don't over use it to avoid unnecessary billing.
+    """
     config = get_openai_api_config()
     api_key = config["api_key"]
     
